@@ -2,14 +2,6 @@
 
 An OpenAI API-compatible proxy for HackClub AI that allows you to use OpenAI clients with HackClub's free AI service.
 
-## Features
-
-- 🔄 **OpenAI Compatibility**: Works with existing OpenAI client libraries and tools
-- 🤖 **Dynamic Model Detection**: Automatically detects the current model used by HackClub AI
-- 📝 **Comprehensive Logging**: Detailed request/response logging with privacy protection
-- 🚀 **Serverless Ready**: Deployable to Vercel or run as a standalone server
-- 📚 **Interactive Documentation**: Swagger UI for testing and exploring the API
-
 ## How It Works
 
 This proxy server acts as a middleware between your application and HackClub's AI service, translating requests and responses between OpenAI's API format and HackClub's API format.
