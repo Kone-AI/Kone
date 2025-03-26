@@ -1,0 +1,309 @@
+{
+  "openapi": "3.0.0",
+  "info": {
+    "title": "HackClub AI API Proxy",
+    "description": "OpenAI API compatible proxy for HackClub AI\n\nPowered by [ai.hackclub.com](https://ai.hackclub.com)\nProxy created by [Minoa.cat](https://minoa.cat)",
+    "version": "1.0.0"
+  },
+  "servers": [
+    {
+      "url": "http://localhost:3000"
+    }
+  ],
+  "security": [
+    {
+      "ApiKeyAuth": []
+    }
+  ],
+  "components": {
+    "securitySchemes": {
+      "ApiKeyAuth": {
+        "type": "apiKey",
+        "in": "header",
+        "name": "Authorization",
+        "description": "API key is optional and will be ignored"
+      }
+    }
+  },
+  "paths": {
+    "/models": {
+      "get": {
+        "summary": "Get available models",
+        "description": "Returns a list of available models in OpenAI format",
+        "responses": {
+          "200": {
+            "description": "Successful response",
+            "content": {
+              "application/json": {
+                "example": {
+                  "object": "list",
+                  "data": [
+                    {
+                      "id": "llama-3.3-70b-versatile",
+                      "object": "model",
+                      "created": 1677652288,
+                      "owned_by": "hackclub",
+                      "permission": [],
+                      "root": "llama-3.3-70b-versatile",
+                      "parent": null
+                    }
+                  ]
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/models": {
+      "get": {
+        "summary": "Get available models (OpenAI v1 endpoint)",
+        "description": "OpenAI API v1 compatibility endpoint for listing available models",
+        "responses": {
+          "200": {
+            "description": "Successful response",
+            "content": {
+              "application/json": {
+                "example": {
+                  "object": "list",
+                  "data": [
+                    {
+                      "id": "llama-3.3-70b-versatile",
+                      "object": "model",
+                      "created": 1677652288,
+                      "owned_by": "hackclub",
+                      "permission": [],
+                      "root": "llama-3.3-70b-versatile",
+                      "parent": null
+                    }
+                  ]
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/chat/completions": {
+      "post": {
+        "summary": "Create chat completion",
+        "description": "Creates a completion for the chat message",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "messages": {
+                    "type": "array",
+                    "description": "List of messages comprising the conversation so far",
+                    "items": {
+                      "type": "object",
+                      "required": ["role", "content"],
+                      "properties": {
+                        "role": {
+                          "type": "string",
+                          "enum": ["system", "user", "assistant"],
+                          "description": "The role of the message author"
+                        },
+                        "content": {
+                          "type": "string",
+                          "description": "The content of the message"
+                        }
+                      }
+                    }
+                  },
+                  "model": {
+                    "type": "string",
+                    "description": "ID of the model to use (will be ignored, but accepted for compatibility)"
+                  },
+                  "temperature": {
+                    "type": "number",
+                    "format": "float",
+                    "minimum": 0,
+                    "maximum": 2,
+                    "description": "Controls randomness. Higher values make output more random, lower values make it more deterministic"
+                  },
+                  "max_tokens": {
+                    "type": "integer",
+                    "minimum": 1,
+                    "description": "Maximum number of tokens to generate"
+                  },
+                  "api_key": {
+                    "type": "string",
+                    "description": "Optional API key (will be ignored, but accepted for compatibility)"
+                  }
+                }
+              },
+              "example": {
+                "messages": [
+                  {
+                    "role": "user",
+                    "content": "Tell me a joke!"
+                  }
+                ]
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful response",
+            "content": {
+              "application/json": {
+                "example": {
+                  "id": "chatcmpl-123abc",
+                  "object": "chat.completion",
+                  "created": 1677652288,
+                  "model": "gpt-3.5-turbo",
+                  "choices": [{
+                    "index": 0,
+                    "message": {
+                      "role": "assistant",
+                      "content": "Why don't programmers like nature? It has too many bugs!"
+                    },
+                    "finish_reason": "stop"
+                  }],
+                  "usage": {
+                    "prompt_tokens": 10,
+                    "completion_tokens": 20,
+                    "total_tokens": 30
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/chat/completions": {
+      "post": {
+        "summary": "Create chat completion (OpenAI v1 compatibility)",
+        "description": "OpenAI API v1 compatibility endpoint, identical to /chat/completions",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "messages": {
+                    "type": "array",
+                    "description": "List of messages comprising the conversation so far",
+                    "items": {
+                      "type": "object",
+                      "required": ["role", "content"],
+                      "properties": {
+                        "role": {
+                          "type": "string",
+                          "enum": ["system", "user", "assistant"],
+                          "description": "The role of the message author"
+                        },
+                        "content": {
+                          "type": "string",
+                          "description": "The content of the message"
+                        }
+                      }
+                    }
+                  },
+                  "model": {
+                    "type": "string",
+                    "description": "ID of the model to use (will be ignored, but accepted for compatibility)"
+                  },
+                  "temperature": {
+                    "type": "number",
+                    "format": "float",
+                    "minimum": 0,
+                    "maximum": 2,
+                    "description": "Controls randomness. Higher values make output more random, lower values make it more deterministic"
+                  },
+                  "max_tokens": {
+                    "type": "integer",
+                    "minimum": 1,
+                    "description": "Maximum number of tokens to generate"
+                  },
+                  "api_key": {
+                    "type": "string",
+                    "description": "Optional API key (will be ignored, but accepted for compatibility)"
+                  }
+                }
+              },
+              "example": {
+                "model": "gpt-3.5-turbo",
+                "messages": [
+                  {
+                    "role": "user",
+                    "content": "Tell me a joke!"
+                  }
+                ]
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful response",
+            "content": {
+              "application/json": {
+                "example": {
+                  "id": "chatcmpl-123abc",
+                  "object": "chat.completion",
+                  "created": 1677652288,
+                  "model": "gpt-3.5-turbo",
+                  "choices": [{
+                    "index": 0,
+                    "message": {
+                      "role": "assistant",
+                      "content": "Why don't programmers like nature? It has too many bugs!"
+                    },
+                    "finish_reason": "stop"
+                  }],
+                  "usage": {
+                    "prompt_tokens": 10,
+                    "completion_tokens": 20,
+                    "total_tokens": 30
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/test-response": {
+      "get": {
+        "summary": "Test endpoint",
+        "description": "Returns a test response in OpenAI format to verify client compatibility",
+        "responses": {
+          "200": {
+            "description": "Successful response",
+            "content": {
+              "application/json": {
+                "example": {
+                  "id": "chatcmpl-123abc",
+                  "object": "chat.completion",
+                  "created": 1677652288,
+                  "model": "llama-3.3-70b-versatile",
+                  "choices": [{
+                    "index": 0,
+                    "message": {
+                      "role": "assistant",
+                      "content": "This is a test response in standard OpenAI format. Your client should be able to parse and display this message properly."
+                    },
+                    "finish_reason": "stop"
+                  }],
+                  "usage": {
+                    "prompt_tokens": 0,
+                    "completion_tokens": 25,
+                    "total_tokens": 25
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+}
