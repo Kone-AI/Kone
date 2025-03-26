@@ -28,8 +28,8 @@ const DEBUG_MODE = {
     }
 };
 
-// Global variable to store the current model
-let currentModel = 'llama-3.3-70b-versatile'; // Default fallback model
+// Hardcoded model name (no longer dynamically fetched)
+const currentModel = 'llama-3.3-70b-versatile';
 
 // Check if we're running on Vercel
 const isVercelEnv = process.env.VERCEL === '1';
@@ -71,42 +71,6 @@ const safeStringify = (obj) => {
         return JSON.stringify(obj, null, 2);
     } catch (error) {
         return `[Cannot stringify: ${error.message}]`;
-    }
-};
-
-// Function to fetch the current model from HackClub's homepage
-const fetchCurrentModel = async () => {
-    try {
-        logMessage('Fetching current model from HackClub AI...');
-        const response = await fetch('https://ai.hackclub.com');
-        
-        // Check if response status is OK
-        if (!response.ok) {
-            logMessage(`Failed to fetch model: Invalid status code ${response.status}`);
-            return;
-        }
-        
-        const html = await response.text();
-
-        // Extract model name using regex
-        const modelRegex = /Current\s+model:\s*<b[^>]*><code[^>]*>([^<]+)<\/code><\/b>/i;
-        const match = html.match(modelRegex);
-
-        if (match && match[1]) {
-            currentModel = match[1].trim();
-            logMessage(`Current model updated to: ${currentModel}`);
-        } else {
-            // Be more specific about why it failed to find the model
-            logMessage(`Could not extract current model from HackClub AI homepage: Couldn't find the model name pattern in the page. Looking for <b><code>model-name</code></b> format.`);
-            
-            // Add some debug info to see what we're getting from the homepage
-            if (DEBUG_MODE.enabled) {
-                const preview = html.substring(0, 500) + (html.length > 500 ? '...' : '');
-                logMessage(`HTML Preview: ${preview}`, true);
-            }
-        }
-    } catch (error) {
-        logMessage(`Error fetching current model: ${error.message}`);
     }
 };
 
@@ -302,15 +266,7 @@ const transformToOpenAiFormat = (hackclubResponse, model, requestId) => {
     return openAiResponse;
 };
 
-// Fetch the model on startup
-fetchCurrentModel();
-
-// Skip model refresh interval in Vercel environment as it won't persist across function invocations
-// But we'll still get the latest model on each cold start
-if (!isVercelEnv) {
-    // Schedule periodic model fetching (every 6 hours)
-    setInterval(fetchCurrentModel, 6 * 60 * 60 * 1000);
-}
+// No need to fetch the model since we're using a hardcoded value
 
 app.use(cors());
 app.use(express.json());
@@ -386,8 +342,15 @@ app.use((req, res, next) => {
 });
 
 // Serve documentation
+// First try public directory (for Vercel), fall back to node_modules (for local dev)
+app.use('/swagger-ui', express.static(path.join(__dirname, 'public/swagger-ui')));
+app.use('/swagger-ui', express.static(path.join(__dirname, 'node_modules/swagger-ui-express/static')));
 app.use('/', swaggerUi.serve);
-app.get('/', swaggerUi.setup(docs));
+app.get('/', swaggerUi.setup(docs, {
+  customCssUrl: '/swagger-ui/swagger-ui.css',
+  customJs: '/swagger-ui/swagger-ui-bundle.js',
+  customfavIcon: '/swagger-ui/favicon-32x32.png'
+}));
 
 
 // OpenAI compatible models endpoint

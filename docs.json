@@ -3,11 +3,22 @@
   "info": {
     "title": "HackClub AI API Proxy",
     "description": "OpenAI API compatible proxy for HackClub AI\n\nPowered by [ai.hackclub.com](https://ai.hackclub.com)\nProxy created by [Minoa.cat](https://minoa.cat)",
-    "version": "1.0.0"
+    "version": "1.0.1"
   },
   "servers": [
     {
-      "url": "http://localhost:3000"
+      "url": "https://ai.minoa.cat",
+      "description": "The API server",
+      "variables": {
+        "host": {
+          "default": "ai.minoa.cat",
+          "description": "The deployment host"
+        }
+      }
+    },
+    {
+      "url": "http://localhost:3000",
+      "description": "Local development server"
     }
   ],
   "security": [
