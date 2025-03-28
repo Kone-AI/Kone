@@ -1,4 +1,4 @@
-# HackClub API Compatibility Layer
+# Open AI Router
 
 An OpenAI API-compatible proxy for HackClub AI that allows you to use OpenAI clients with HackClub's free AI service.
 
