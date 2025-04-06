@@ -192,14 +192,23 @@ class ProviderManager {
     return !this.disabledProviders.has(provider.constructor.name);
   }
 
-  checkRateLimit(provider) {
+  checkRateLimit(provider, isHealthCheck = false) {
+    // If rate limits are disabled, return early
     if (process.env.DISABLE_RATE_LIMIT === 'true') return;
+
     const now = Date.now();
     const limit = this.rateLimits.get(provider.constructor.name);
-    let delay = limit?.delay || 1000;
-    if (process.env.ENABLE_HEALTH_CHECKS !== 'false') {
-      delay = parseInt(process.env.HEALTH_CHECK_DELAY) + 400;
-    }
+
+    // Different delays for health checks vs regular API requests
+    const windowMs = parseInt(process.env.RATE_LIMIT_WINDOW) || 60000;
+    const maxRequests = parseInt(process.env.RATE_LIMIT_REQUESTS) || 60;
+    const baseDelay = Math.floor(windowMs / maxRequests);
+
+    // For health checks, use the health check delay
+    const delay = isHealthCheck ?
+      (parseInt(process.env.HEALTH_CHECK_DELAY) || 26000) :
+      (limit?.delay || baseDelay);
+
     if (limit && now - limit.timestamp < delay) {
       throw new Error('rate limit exceeded');
     }
@@ -209,59 +218,18 @@ class ProviderManager {
     this.rateLimits.set(provider.constructor.name, { timestamp: Date.now(), delay });
   }
 
-  async tryWithBackupKeys(provider, key, retryCount = 0) {
-    const backupKey = process.env[`${key}_BACKUP${retryCount + 1}`];
-    if (backupKey) {
-      // Temporarily switch to backup key
-      const originalKey = process.env[key];
-      process.env[key] = backupKey;
-      try {
-        return await provider.getModels();
-      } catch (error) {
-        if (error.status === 429 && retryCount < 2) { // Try next backup if available
-          return await this.tryWithBackupKeys(provider, key, retryCount + 1);
-        }
-        throw error;
-      } finally {
-        process.env[key] = originalKey;
-      }
-    }
-    throw new Error('No more backup keys available');
-  }
-
   async getAvailableModels() {
     const modelsByProvider = new Map();
     const errors = [];
-    const successfulProviders = [];
 
     // Collect models from each provider and group by provider
     for (const provider of this.providers) {
       if (!this.isProviderEnabled(provider) || !provider.enabled) continue;
-      
       try {
-        this.checkRateLimit(provider);
-        let providerModels;
-
-        try {
-          providerModels = await provider.getModels();
-        } catch (error) {
-          if (error.status === 429) {
-            // Try backup keys for providers that support them
-            const providerName = provider.constructor.name.replace('Provider', '').toUpperCase();
-            const keyName = `${providerName}_API_KEY`;
-            if (process.env[`${keyName}_BACKUP1`]) {
-              providerModels = await this.tryWithBackupKeys(provider, keyName);
-            } else {
-              throw error;
-            }
-          } else {
-            throw error;
-          }
-        }
-
+        this.checkRateLimit(provider, true);
+        const providerModels = await provider.getModels();
         modelsByProvider.set(provider.constructor.name, providerModels);
         this.updateRateLimit(provider);
-        successfulProviders.push(provider.constructor.name);
       } catch (error) {
         logger.error(`Failed to get models from provider:`, {
           provider: provider.constructor.name,
@@ -292,24 +260,12 @@ class ProviderManager {
       acc.push(...providerModels);
       return acc;
     }, []);
-
-    // Return models even if some providers failed, as long as we got some models
     if (models.length === 0) {
       const message = errors.length > 0 ?
         'Failed to get models from any provider: ' + errors.map(e => `${e.provider} (${e.error})`).join(', ') :
         'No enabled providers available';
       throw new Error(message);
     }
-
-    // Log summary if there were any failures
-    if (errors.length > 0) {
-      logger.warn('Some providers failed to fetch models:', {
-        successful: successfulProviders,
-        failed: errors.map(e => e.provider),
-        total_models: models.length
-      });
-    }
-
     return models;
   }
 
@@ -319,7 +275,7 @@ class ProviderManager {
     for (const provider of this.providers) {
       if (!this.isProviderEnabled(provider) || !provider.enabled) continue;
       try {
-        this.checkRateLimit(provider);
+        this.checkRateLimit(provider, false);
         if (await provider.canHandle(model)) return provider;
         this.updateRateLimit(provider);
       } catch (error) {
@@ -354,7 +310,7 @@ class ProviderManager {
     while (attempt < this.retryAttempts) {
       try {
         const provider = await this.getProviderForModel(model);
-        this.checkRateLimit(provider);
+        this.checkRateLimit(provider, false);
         if (options.stream && !provider.supportsStreaming) {
           throw { message: `Streaming not supported by provider for model: ${model}`, type: 'invalid_request_error', param: 'stream', code: 'streaming_not_supported' };
         }

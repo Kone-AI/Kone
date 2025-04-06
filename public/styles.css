@@ -142,7 +142,7 @@ a::after {
     border: 1px solid var(--border);
     border-radius: 16px;
     padding: 2rem;
-    transition: all 0.3s ease-out;
+    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
     margin-bottom: 1.5rem;
     position: relative;
     display: flex;
