@@ -2,21 +2,19 @@
   "version": 2,
   "builds": [
     {
-      "src": "server.js",
+      "src": "src/server.js",
       "use": "@vercel/node"
     }
   ],
   "routes": [
     {
-      "src": "/swagger-ui/(.*)",
-      "dest": "/server.js"
-    },
-    {
       "src": "/(.*)",
-      "dest": "/server.js"
+      "dest": "src/server.js"
     }
   ],
   "env": {
-    "NODE_ENV": "production"
+    "OPENROUTER_API_KEY": "@openrouter_api_key",
+    "GOOGLE_AI_KEY": "@google_ai_key",
+    "DEBUG_MODE": "@debug_mode"
   }
 }

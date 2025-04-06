@@ -1,0 +1,369 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <title>Donate - Sylph</title>
+    <link rel="stylesheet" href="/styles.css">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <script defer src="https://analytics.minoa.cat/script.js" data-website-id="dba618bd-576d-4166-a280-e38df64bf53f"></script>
+    <style>
+        .donate-container {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 0 1rem;
+        }
+
+        /* Center PayPal card */
+        .paypal-section {
+            margin: 0 auto 2rem;
+        }
+
+        /* Grid for crypto cards */
+        .crypto-grid {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 2rem;
+            margin: 2rem 0;
+        }
+
+        @media (max-width: 768px) {
+            .crypto-grid {
+                grid-template-columns: 1fr;
+            }
+
+            .donate-card {
+                aspect-ratio: 4/3;
+                height: auto;
+            }
+        }
+
+        .donate-card {
+            background: var(--card-bg);
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            padding: 2rem;
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+            cursor: pointer;
+            position: relative;
+            overflow: hidden;
+            display: flex;
+            flex-direction: column;
+            gap: 1rem;
+        }
+
+        .donate-card:not(.disabled):hover {
+            transform: translateY(-3px);
+            border-color: var(--text);
+            box-shadow: 0 8px 30px rgba(0, 0, 0, 0.15);
+        }
+
+        .donate-card::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            height: 4px;
+            background: linear-gradient(90deg, var(--gradient-start), var(--gradient-end));
+            opacity: 0;
+            transition: opacity 0.3s ease;
+        }
+
+        .donate-card:not(.disabled):hover::before {
+            opacity: 1;
+        }
+
+        .donate-card.disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+
+        .donate-header {
+            display: flex;
+            align-items: center;
+            gap: 1rem;
+            margin-bottom: 0.5rem;
+        }
+
+        .donate-icon {
+            width: 32px;
+            height: 32px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .donate-title {
+            font-size: 1.8rem;
+            color: var(--text-bright);
+            margin: 0;
+        }
+
+        .donate-description {
+            color: var(--text-muted);
+            font-size: 1.1rem;
+            margin: 0;
+            flex: 1;
+        }
+
+        /* Modal styles */
+        .modal {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.8);
+            backdrop-filter: blur(5px);
+            z-index: 1500;
+        }
+
+        .modal.show {
+            display: block;
+        }
+
+        .modal-content {
+            position: relative;
+            background: var(--card-bg);
+            margin: 15% auto;
+            padding: 2rem;
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            max-width: 500px;
+            animation: slideIn 0.3s ease;
+        }
+
+        .close-modal {
+            position: absolute;
+            right: 1rem;
+            top: 1rem;
+            font-size: 1.5rem;
+            cursor: pointer;
+            color: var(--text-muted);
+            transition: color 0.3s ease;
+            background: none;
+            border: none;
+            width: 32px;
+            height: 32px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            border-radius: 50%;
+        }
+
+        .close-modal:hover {
+            color: var(--text-bright);
+            background: var(--button-bg);
+        }
+
+        .wallet-address {
+            background: var(--button-bg);
+            padding: 1rem;
+            border-radius: 8px;
+            font-family: monospace;
+            margin: 1rem 0;
+            word-break: break-all;
+            border: 1px solid var(--border);
+            color: var(--text-bright);
+            position: relative;
+            transition: all 0.3s ease;
+        }
+
+        .wallet-address:hover {
+            background: var(--button-hover);
+            border-color: var(--text);
+        }
+
+        .copy-button {
+            background: var(--button-bg);
+            border: 1px solid var(--border);
+            color: var(--text);
+            padding: 0.75rem 1.5rem;
+            border-radius: 8px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            margin: 0 auto;
+        }
+
+        .copy-button:hover {
+            background: var(--button-hover);
+            border-color: var(--text);
+            transform: translateY(-2px);
+        }
+
+        .notification {
+            position: fixed;
+            top: -100px;
+            left: 50%;
+            transform: translateX(-50%);
+            background: var(--card-bg);
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            padding: 1rem 2rem;
+            color: var(--text-bright);
+            transition: top 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+            z-index: 2000;
+            backdrop-filter: blur(5px);
+        }
+
+        .notification.show {
+            top: 20px;
+        }
+
+        @media (max-width: 768px) {
+            .modal-content {
+                margin: 5% auto;
+                width: calc(100% - 2rem);
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="donate-container">
+        <h1 class="site-header" onclick="location.href='/'">/donate</h1>
+        <p class="text-center text-muted" style="font-size: 1.2rem; margin-bottom: 2rem;">Support the development and hosting of Sylph</p>
+
+        <!-- PayPal Card (centered) -->
+        <div class="paypal-section">
+        <div class="donate-card" onclick="window.location.href='https://paypal.me/m1noa'">
+            <div class="donate-header">
+                <div class="donate-icon">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="48" height="48" viewBox="-2 -2 24 24"><g fill="#003fb0"><path d="m8.252 13.405l-.006.036a.47.47 0 0 1-.462.388h-1.32a.465.465 0 0 1-.457-.542l1.329-7.9A.465.465 0 0 1 7.794 5H11.4c1.192 0 2.158.966 2.158 2.158q0 .213-.026.42c.483.342.798.906.798 1.543a2.98 2.98 0 0 1-2.982 2.982h-.303a.7.7 0 0 0-.688.582l-.164.974l.164-.974a.7.7 0 0 1 .688-.582h.303a2.98 2.98 0 0 0 2.982-2.982c0-.637-.315-1.2-.798-1.544a3.4 3.4 0 0 1-3.372 2.98H9.155a.505.505 0 0 0-.485.364l-.602 3.576a.41.41 0 0 0 .404.478h1.154c.2 0 .37-.145.404-.342l.164-.974l-.164.974a.41.41 0 0 1-.404.342H8.472a.408.408 0 0 1-.404-.478z"/><path d="M13.967 8c.19.295.301.647.301 1.025a2.98 2.98 0 0 1-2.981 2.982h-.304a.7.7 0 0 0-.688.582l-.327 1.949a.41.41 0 0 1-.404.341H8.507l.6-3.56a.505.505 0 0 1 .484-.366h1.007A3.4 3.4 0 0 0 13.967 8m-5.46 6.88H8.41a.41.41 0 0 1-.404-.478l.03-.176h.185a.47.47 0 0 0 .461-.388l.007-.036l-.182 1.077z"/><path d="M4 2a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V4a2 2 0 0 0-2-2zm0-2h12a4 4 0 0 1 4 4v12a4 4 0 0 1-4 4H4a4 4 0 0 1-4-4V4a4 4 0 0 1 4-4"/></g></svg>
+                </div>
+                <h2 class="donate-title">PayPal</h2>
+            </div>
+            <p class="donate-description">Support via PayPal (preferred)</p>
+        </div>
+
+        </div>
+
+        <!-- Crypto Cards (2 per row) -->
+        <div class="crypto-grid">
+            <div class="donate-card" onclick="showWallet('eth')">
+                <div class="donate-header">
+                    <div class="donate-icon">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 32 32"><g fill="none" fill-rule="evenodd"><circle cx="16" cy="16" r="16" fill="#627eea"/><g fill="#fff" fill-rule="nonzero"><path fill-opacity="0.602" d="M16.498 4v8.87l7.497 3.35z"/><path d="M16.498 4L9 16.22l7.498-3.35z"/><path fill-opacity="0.602" d="M16.498 21.968v6.027L24 17.616z"/><path d="M16.498 27.995v-6.028L9 17.616z"/><path fill-opacity="0.2" d="m16.498 20.573l7.497-4.353l-7.497-3.348z"/><path fill-opacity="0.602" d="m9 16.22l7.498 4.353v-7.701z"/></g></g></svg>
+                    </div>
+                    <h2 class="donate-title">Ethereum</h2>
+                </div>
+                <p class="donate-description">Support via ETH on the Ethereum network</p>
+            </div>
+
+            <div class="donate-card" onclick="showWallet('sol')">
+                <div class="donate-header">
+                    <div class="donate-icon">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 32 32"><g fill="none"><circle cx="16" cy="16" r="16" fill="#66f9a1"/><path fill="#fff" d="M9.925 19.687a.6.6 0 0 1 .415-.17h14.366a.29.29 0 0 1 .207.497l-2.838 2.815a.6.6 0 0 1-.415.171H7.294a.291.291 0 0 1-.207-.498zm0-10.517A.6.6 0 0 1 10.34 9h14.366c.261 0 .392.314.207.498l-2.838 2.815a.6.6 0 0 1-.415.17H7.294a.291.291 0 0 1-.207-.497zm12.15 5.225a.6.6 0 0 0-.415-.17H7.294a.291.291 0 0 0-.207.498l2.838 2.815c.11.109.26.17.415.17h14.366a.291.291 0 0 0 .207-.498z"/></g></svg>
+                    </div>
+                    <h2 class="donate-title">Solana</h2>
+                </div>
+                <p class="donate-description">Support via SOL on the Solana network</p>
+            </div>
+
+            <div class="donate-card" onclick="showWallet('btc')">
+                <div class="donate-header">
+                    <div class="donate-icon">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 32 32"><g fill="none" fill-rule="evenodd"><circle cx="16" cy="16" r="16" fill="#f7931a"/><path fill="#fff" fill-rule="nonzero" d="M23.189 14.02c.314-2.096-1.283-3.223-3.465-3.975l.708-2.84l-1.728-.43l-.69 2.765c-.454-.114-.92-.22-1.385-.326l.695-2.783L15.596 6l-.708 2.839q-.565-.127-1.104-.26l.002-.009l-2.384-.595l-.46 1.846s1.283.294 1.256.312c.7.175.826.638.805 1.006l-.806 3.235q.073.017.18.057l-.183-.045l-1.13 4.532c-.086.212-.303.531-.793.41c.018.025-1.256-.313-1.256-.313l-.858 1.978l2.25.561c.418.105.828.215 1.231.318l-.715 2.872l1.727.43l.708-2.84q.707.19 1.378.357l-.706 2.828l1.728.43l.715-2.866c2.948.558 5.164.333 6.097-2.333c.752-2.146-.037-3.385-1.588-4.192c1.13-.26 1.98-1.003 2.207-2.538m-3.95 5.538c-.533 2.147-4.148.986-5.32.695l.95-3.805c1.172.293 4.929.872 4.37 3.11m.535-5.569c-.487 1.953-3.495.96-4.47.717l.86-3.45c.975.243 4.118.696 3.61 2.733"/></g></svg>
+                    </div>
+                    <h2 class="donate-title">Bitcoin</h2>
+                </div>
+                <p class="donate-description">Support via BTC on the Bitcoin network</p>
+            </div>
+
+            <div class="donate-card disabled">
+                <div class="donate-header">
+                    <div class="donate-icon">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 24 24"><path fill="#f60" d="M12 3a8.99 8.99 0 0 1 8.543 11.813h-2.918V7.288l-5.633 5.869l-5.617-5.861v7.517H3.457A8.9 8.9 0 0 1 3 12.008C3 7.03 7.026 3 12 3m.025 12.822l3.912-3.914V16.5h3.749C18.022 19.246 15.254 21.002 12 21c-3.244 0-6.098-1.91-7.686-4.5h3.748v-4.592z"/></svg>
+                    </div>
+                    <h2 class="donate-title">Monero</h2>
+                </div>
+                <p class="donate-description">Coming soon...</p>
+            </div>
+        </div>
+    </div>
+
+    <div id="notification" class="notification"></div>
+
+    <div id="walletModal" class="modal">
+        <div class="modal-content">
+            <button class="close-modal" onclick="closeModal()">&times;</button>
+            <h2 id="modalTitle"></h2>
+            <div id="walletAddress" class="wallet-address"></div>
+            <button class="copy-button" onclick="copyAddress()">
+                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24">
+                    <path fill="currentColor" d="M19 3h-4.18C14.4 1.84 13.3 1 12 1c-1.3 0-2.4.84-2.82 2H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm-7 0c.55 0 1 .45 1 1s-.45 1-1 1s-1-.45-1-1s.45-1 1-1zm7 16H5V5h2v2h10V5h2v14z"/>
+                </svg>
+                Copy Address
+            </button>
+        </div>
+    </div>
+
+    <script>
+        const wallets = {
+            eth: '0xA3AB1B884518bAa642C8abE8160f013fbcd80aD2',
+            sol: 'GQpCYKyy7H1o3UUs6t25sj1xf5i7gbWUeBLBZSSc9WeH',
+            btc: 'bc1p38mvpl9jqxr4cqnsc2lhxf7spzj0tfzmv4dwvx4rrq9qwtfty9hqnjlyky',
+            xmr: 'Coming soon'
+        };
+
+        const titles = {
+            eth: 'Ethereum (ETH) Address',
+            sol: 'Solana (SOL) Address',
+            btc: 'Bitcoin (BTC) Address',
+            xmr: 'Monero (XMR) Address'
+        };
+
+        function showWallet(type) {
+            if (type === 'xmr') return;
+            
+            const modal = document.getElementById('walletModal');
+            const title = document.getElementById('modalTitle');
+            const address = document.getElementById('walletAddress');
+            
+            title.textContent = titles[type];
+            address.textContent = wallets[type];
+            modal.style.display = 'block';
+            modal.classList.add('show');
+        }
+
+        function closeModal() {
+            const modal = document.getElementById('walletModal');
+            modal.classList.remove('show');
+            setTimeout(() => {
+                modal.style.display = 'none';
+            }, 300);
+        }
+
+        function copyAddress() {
+            const address = document.getElementById('walletAddress').textContent;
+            navigator.clipboard.writeText(address)
+                .then(() => showNotification('Wallet address copied to clipboard'))
+                .catch(() => showNotification('Failed to copy address'));
+        }
+
+        function showNotification(message) {
+            const notification = document.getElementById('notification');
+            notification.textContent = message;
+            notification.classList.add('show');
+            
+            setTimeout(() => {
+                notification.classList.remove('show');
+            }, 3000);
+        }
+
+        // Close modal when clicking outside
+        document.getElementById('walletModal').addEventListener('click', function(event) {
+            if (event.target === this) {
+                closeModal();
+            }
+        });
+
+        // Prevent modal content clicks from closing
+        document.querySelector('.modal-content').addEventListener('click', function(event) {
+            event.stopPropagation();
+        });
+    </script>
+</body>
+</html>

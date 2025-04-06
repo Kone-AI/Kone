@@ -1,0 +1,658 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>API Documentation - Sylph</title>
+    <link rel="stylesheet" href="/styles.css">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <script defer src="https://analytics.minoa.cat/script.js" data-website-id="dba618bd-576d-4166-a280-e38df64bf53f"></script>
+    <meta name="description" content="API documentation for Sylph - Multi-API Compatibility Layer for Large Language Models">
+    <meta name="keywords" content="AI API, language models, LLM, API documentation, OpenAI-compatible">
+    <meta name="robots" content="index, follow">
+    <style>
+        :root {
+            --sidebar-width: 250px;
+            --section-gap: 4rem;
+            --nav-height: 60px;
+        }
+
+        .docs-container {
+            display: flex;
+            max-width: 1200px;
+            margin: 0 auto;
+            gap: 2rem;
+            padding: 1rem;
+        }
+
+        .docs-sidebar {
+            position: sticky;
+            top: var(--nav-height);
+            height: calc(100vh - var(--nav-height));
+            width: var(--sidebar-width);
+            padding: 1rem;
+            overflow-y: auto;
+            padding-top: calc(var(--nav-height) + 2rem);
+        }
+
+        .docs-content {
+            flex: 1;
+            padding: 1rem;
+            max-width: calc(100% - var(--sidebar-width));
+            padding-top: calc(var(--nav-height) + 2rem);
+            padding-bottom: 300px;
+        }
+
+        .base-url-banner {
+            background: var(--card-bg);
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            padding: 1rem;
+            margin-bottom: 2rem;
+            font-family: 'Ubuntu Mono', monospace;
+            color: var(--text-bright);
+            display: flex;
+            align-items: center;
+            gap: 1rem;
+        }
+
+        .base-url-label {
+            color: var(--text-muted);
+            font-size: 0.9rem;
+        }
+
+        .base-url {
+            flex: 1;
+            font-weight: bold;
+        }
+
+        .base-url-copy {
+            background: var(--button-bg);
+            border: 1px solid var(--border);
+            color: var(--text);
+            padding: 0.4rem 0.8rem;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 0.9rem;
+            transition: all 0.3s ease;
+        }
+
+        .base-url-copy:hover {
+            background: var(--button-hover);
+            border-color: var(--text);
+            transform: translateY(-1px);
+        }
+
+        /* Section styling */
+        .section {
+            scroll-margin-top: calc(var(--nav-height) + 2rem);
+        }
+        
+        .section-nav {
+            margin: 2rem 0;
+        }
+
+        .section-nav-item {
+            display: block;
+            padding: 0.5rem 1rem;
+            margin: 0.5rem 0;
+            color: var(--link-color);
+            text-decoration: none;
+            border-radius: 6px;
+            transition: all 0.3s ease;
+            position: relative;
+        }
+
+        .section-nav-item:hover {
+            background: var(--card-bg);
+            color: var(--link-hover);
+        }
+
+        .section-nav-item.active {
+            background: var(--button-bg);
+            color: var(--link-hover);
+            border-left: 3px solid var(--text);
+        }
+
+        .endpoint {
+            background: var(--card-bg);
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            margin: 3rem 0;
+            overflow: hidden;
+            transition: all 0.3s ease;
+        }
+
+        .endpoint:hover {
+            border-color: var(--text);
+            transform: translateY(-2px);
+        }
+
+        .endpoint-header {
+            padding: 1rem;
+            display: flex;
+            align-items: center;
+            gap: 1rem;
+            border-bottom: 1px solid var(--border);
+            background: rgba(0, 0, 0, 0.3);
+        }
+
+        .http-method {
+            padding: 0.25rem 0.75rem;
+            border-radius: 6px;
+            font-size: 0.9rem;
+            font-weight: bold;
+            min-width: 60px;
+            text-align: center;
+        }
+
+        .method-get { 
+            background: rgba(97, 175, 254, 0.1); 
+            color: #61affe;
+        }
+        
+        .method-post { 
+            background: rgba(73, 204, 144, 0.1); 
+            color: #49cc90;
+        }
+
+        .endpoint-url {
+            font-family: 'Ubuntu Mono', monospace;
+            color: var(--text-bright);
+        }
+
+        .endpoint-body {
+            padding: 2rem;
+        }
+
+        .parameter-table {
+            width: 100%;
+            border-collapse: collapse;
+            margin: 2rem 0;
+        }
+
+        .parameter-table th,
+        .parameter-table td {
+            padding: 1rem;
+            text-align: left;
+            border-bottom: 1px solid var(--border);
+        }
+
+        .parameter-table th {
+            color: var(--text-bright);
+            font-weight: normal;
+            background: rgba(0, 0, 0, 0.2);
+        }
+
+        .parameter-required {
+            color: #ff5555;
+            margin-left: 0.25rem;
+        }
+
+        .code-block {
+            background: rgba(0, 0, 0, 0.4);
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            padding: 1.5rem;
+            margin: 1.5rem 0;
+            font-family: 'Ubuntu Mono', monospace;
+            position: relative;
+        }
+
+        .code-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin: -1.5rem -1.5rem 1rem -1.5rem;
+            padding: 0.75rem 1.5rem;
+            background: rgba(0, 0, 0, 0.2);
+            border-bottom: 1px solid var(--border);
+            color: var(--text-muted);
+            font-size: 0.9rem;
+        }
+
+        .copy-btn {
+            position: absolute;
+            top: 0.75rem;
+            right: 0.75rem;
+            background: var(--button-bg);
+            border: 1px solid var(--border);
+            color: var(--text);
+            padding: 0.25rem 0.75rem;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 0.8rem;
+            transition: all 0.3s ease;
+        }
+
+        .copy-btn:hover {
+            background: var(--button-hover);
+            border-color: var(--text);
+            transform: translateY(-1px);
+        }
+
+        .copy-btn.copied {
+            background: var(--text);
+            color: var(--background);
+        }
+
+        @media (max-width: 1024px) {
+            :root {
+                --nav-height: 0;
+            }
+
+            .docs-container {
+                flex-direction: column;
+                padding: 0;
+            }
+
+            .docs-sidebar {
+                position: relative;
+                width: 100%;
+                height: auto;
+                padding: 1rem;
+                top: 0;
+            }
+
+            .docs-content {
+                max-width: 100%;
+                padding: 1rem;
+            }
+
+            .section-nav {
+                display: flex;
+                flex-wrap: wrap;
+                gap: 0.5rem;
+                margin: 1rem 0;
+            }
+
+            .section-nav-item {
+                flex: 1 1 auto;
+                min-width: 150px;
+                text-align: center;
+                margin: 0;
+            }
+        }
+
+        @media (max-width: 768px) {
+            .docs-container {
+                padding: 0;
+            }
+
+            .endpoint {
+                margin: 1.5rem 0;
+                border-radius: 0;
+            }
+
+            .endpoint-header {
+                flex-direction: column;
+                align-items: flex-start;
+                gap: 0.5rem;
+            }
+
+            .endpoint-body {
+                padding: 1rem;
+            }
+
+            .parameter-table {
+                display: block;
+                overflow-x: auto;
+                font-size: 0.9rem;
+            }
+
+            .code-block {
+                padding: 1rem;
+                margin: 1rem -1rem;
+                border-radius: 0;
+                border-left: none;
+                border-right: none;
+            }
+
+            .code-header {
+                margin: -1rem -1rem 1rem -1rem;
+                padding: 0.5rem 1rem;
+            }
+
+            pre {
+                font-size: 0.85rem;
+                overflow-x: auto;
+            }
+
+            .base-url-banner {
+                margin: 0 -1rem 1rem -1rem;
+                border-radius: 0;
+                border-left: none;
+                border-right: none;
+            }
+        }
+    </style>
+</head>
+<body>
+
+    <div class="docs-container">
+        <aside class="docs-sidebar">
+            <nav class="section-nav">
+                <a href="#introduction" class="section-nav-item">Introduction</a>
+                <a href="#authentication" class="section-nav-item">Authentication</a>
+                <a href="#models" class="section-nav-item">Models</a>
+                <a href="#chat" class="section-nav-item">Chat</a>
+                <a href="#errors" class="section-nav-item">Errors</a>
+            </nav>
+        </aside>
+
+        <main class="docs-content">
+            <div class="base-url-banner">
+                <span class="base-url-label">Base URL for OpenAI Compatable Things:</span>
+                <span class="base-url" id="baseUrl"></span>
+                <button class="base-url-copy" onclick="copyBaseUrl()">Copy</button>
+            </div>
+
+            <div id="introduction" class="section">
+                <h2>Introduction</h2>
+                <p>Sylph provides an OpenAI-compatible API for interacting with various AI models across different providers. Our API follows RESTful practices and returns JSON responses.</p>
+                
+                <div class="endpoint">
+                    <div class="endpoint-header">
+                        <span class="http-method method-get">GET</span>
+                        <span class="endpoint-url">/health</span>
+                    </div>
+                    <div class="endpoint-body">
+                        <p>Check API health status and provider availability.</p>
+                        
+                        <div class="code-block">
+                            <div class="code-header">
+                                Request
+                                <button class="copy-btn" onclick="copyCode(this)">Copy</button>
+                            </div>
+                            <pre>curl <span id="healthUrl"></span></pre>
+                        </div>
+
+                        <div class="code-block">
+                            <div class="code-header">
+                                Response
+                                <button class="copy-btn" onclick="copyCode(this)">Copy</button>
+                            </div>
+                            <pre>{
+  "status": "ok",
+  "providers": {
+    "available": ["HackClubProvider", "GoogleProvider", "..."],
+    "disabled": [],
+    "errors": {}
+  }
+}</pre>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div id="authentication" class="section">
+                <h2>Authentication</h2>
+                <p>Authentication is optional but recommended. You can provide any string as the API key:</p>
+                <div class="code-block">
+                    <div class="code-header">
+                        HTTP Header
+                        <button class="copy-btn" onclick="copyCode(this)">Copy</button>
+                    </div>
+                    <pre>Authorization: Bearer any-string-works</pre>
+                </div>
+            </div>
+
+            <div id="models" class="section">
+                <h2>Models</h2>
+                <p class="text-muted" style="margin-bottom: 1rem;">Browse all available models at <a href="/models">/models</a></p>
+                
+                <div class="endpoint">
+                    <div class="endpoint-header">
+                        <span class="http-method method-get">GET</span>
+                        <span class="endpoint-url">/v1/models</span>
+                    </div>
+                    <div class="endpoint-body">
+                        <p>List all available models across enabled providers.</p>
+                        
+                        <div class="code-block">
+                            <div class="code-header">
+                                Request
+                                <button class="copy-btn" onclick="copyCode(this)">Copy</button>
+                            </div>
+                            <pre>curl <span class="api-url"></span>/v1/models \
+     -H "Authorization: Bearer any-string"</pre>
+                        </div>
+
+                        <div class="code-block">
+                            <div class="code-header">
+                                Response
+                                <button class="copy-btn" onclick="copyCode(this)">Copy</button>
+                            </div>
+                            <pre>{
+  "object": "list",
+  "data": [
+    {
+      "id": "hackclub/llama-3.3-70b-versatile",
+      "object": "model",
+      "created": 1743648062945,
+      "owned_by": "https://hackclub.com",
+      "permission": [],
+      "root": "llama",
+      "context_length": 128000,
+      "capabilities": {
+        "text": true,
+        "images": false
+      },
+      "health": {
+        "status": "operational",
+        "latency": 312
+      }
+    }
+  ]
+}</pre>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div id="chat" class="section">
+                <h2>Chat</h2>
+                
+                <div class="endpoint">
+                    <div class="endpoint-header">
+                        <span class="http-method method-post">POST</span>
+                        <span class="endpoint-url">/v1/chat/completions</span>
+                    </div>
+                    <div class="endpoint-body">
+                        <p>Create a chat completion with the specified model.</p>
+
+                        <h4>Request Parameters</h4>
+                        <table class="parameter-table">
+                            <tr>
+                                <th>Parameter</th>
+                                <th>Type</th>
+                                <th>Description</th>
+                            </tr>
+                            <tr>
+                                <td>model<span class="parameter-required">*</span></td>
+                                <td>string</td>
+                                <td>ID of the model to use</td>
+                            </tr>
+                            <tr>
+                                <td>messages<span class="parameter-required">*</span></td>
+                                <td>array</td>
+                                <td>Array of messages for the conversation</td>
+                            </tr>
+                            <tr>
+                                <td>stream</td>
+                                <td>boolean</td>
+                                <td>Whether to stream responses (default: false)</td>
+                            </tr>
+                            <tr>
+                                <td>temperature</td>
+                                <td>number</td>
+                                <td>Controls randomness (0-2, default: 0.7)</td>
+                            </tr>
+                        </table>
+
+                        <div class="code-block">
+                            <div class="code-header">
+                                Request
+                                <button class="copy-btn" onclick="copyCode(this)">Copy</button>
+                            </div>
+                            <pre>curl <span class="api-url"></span>/v1/chat/completions \
+     -H "Content-Type: application/json" \
+     -H "Authorization: Bearer any-string" \
+     -d '{
+  "model": "hackclub/llama-3.3-70b-versatile",
+  "messages": [
+    {"role": "user", "content": "Hello!"}
+  ],
+  "temperature": 0.7
+}'</pre>
+                        </div>
+
+                        <div class="code-block">
+                            <div class="code-header">
+                                Response
+                                <button class="copy-btn" onclick="copyCode(this)">Copy</button>
+                            </div>
+                            <pre>{
+  "id": "chat-12345",
+  "object": "chat.completion",
+  "created": 1743648062945,
+  "model": "hackclub/llama-3.3-70b-versatile",
+  "choices": [{
+    "index": 0,
+    "message": {
+      "role": "assistant",
+      "content": "Hello! How can I help you today?"
+    },
+    "finish_reason": "stop"
+  }],
+  "usage": {
+    "prompt_tokens": 10,
+    "completion_tokens": 8,
+    "total_tokens": 18
+  }
+}</pre>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div id="errors" class="section">
+                <h2>Errors</h2>
+                <table class="parameter-table">
+                    <tr>
+                        <th>Code</th>
+                        <th>Description</th>
+                    </tr>
+                    <tr>
+                        <td>400</td>
+                        <td>Invalid request parameters</td>
+                    </tr>
+                    <tr>
+                        <td>401</td>
+                        <td>Invalid or missing API key</td>
+                    </tr>
+                    <tr>
+                        <td>404</td>
+                        <td>Model not found</td>
+                    </tr>
+                    <tr>
+                        <td>429</td>
+                        <td>Too many requests</td>
+                    </tr>
+                    <tr>
+                        <td>500</td>
+                        <td>Server or provider error</td>
+                    </tr>
+                </table>
+
+                <div class="code-block">
+                    <div class="code-header">
+                        Error Response Example
+                        <button class="copy-btn" onclick="copyCode(this)">Copy</button>
+                    </div>
+                    <pre>{
+  "error": {
+    "message": "Model not found: invalid-model",
+    "type": "invalid_request_error",
+    "code": "model_not_found",
+    "param": "model"
+  }
+}</pre>
+                </div>
+            </div>
+        </main>
+    </div>
+
+    <script>
+        // Update API URLs
+        const baseUrl = window.location.origin + '/v1';
+        document.getElementById('baseUrl').textContent = baseUrl;
+        document.querySelectorAll('.api-url').forEach(el => {
+            el.textContent = window.location.origin;
+        });
+        document.getElementById('healthUrl').textContent = window.location.origin + '/health';
+
+        // Copy functions
+        function copyBaseUrl() {
+            navigator.clipboard.writeText(baseUrl);
+            const btn = document.querySelector('.base-url-copy');
+            btn.textContent = 'Copied!';
+            setTimeout(() => btn.textContent = 'Copy', 2000);
+        }
+
+        function copyCode(button) {
+            const pre = button.parentElement.nextElementSibling;
+            const code = pre.textContent;
+            
+            // Replace placeholders with actual values
+            const processedCode = code
+                .replace(/<span class="api-url"><\/span>/g, window.location.origin)
+                .replace('<span id="healthUrl"></span>', window.location.origin + '/health');
+
+            navigator.clipboard.writeText(processedCode);
+            button.textContent = 'Copied!';
+            button.classList.add('copied');
+            setTimeout(() => {
+                button.textContent = 'Copy';
+                button.classList.remove('copied');
+            }, 2000);
+        }
+
+        // Active section tracking
+        function updateActiveSection() {
+            const sections = document.querySelectorAll('.section');
+            let activeSection = '';
+
+            sections.forEach(section => {
+                const rect = section.getBoundingClientRect();
+                if (rect.top <= 100 && rect.bottom > 100) {
+                    activeSection = section.id;
+                }
+            });
+
+            document.querySelectorAll('.section-nav-item').forEach(item => {
+                if (item.getAttribute('href').slice(1) === activeSection) {
+                    item.classList.add('active');
+                } else {
+                    item.classList.remove('active');
+                }
+            });
+        }
+
+        // Smooth scroll to sections
+        document.querySelectorAll('.section-nav-item').forEach(link => {
+            link.addEventListener('click', (e) => {
+                e.preventDefault();
+                const id = link.getAttribute('href').slice(1);
+                document.getElementById(id).scrollIntoView({
+                    behavior: 'smooth',
+                    block: 'start'
+                });
+            });
+        });
+
+        // Initialize
+        window.addEventListener('scroll', updateActiveSection);
+        updateActiveSection();
+    </script>
+</body>
+</html>
