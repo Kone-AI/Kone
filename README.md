@@ -1,8 +1,4 @@
-<<<<<<< Updated upstream
-# Open AI Router
-=======
-# Sylph API
->>>>>>> Stashed changes
+# Sylph
 
 Free API access to AI language models for students and developers in developing countries. Seamlessly integrate with multiple LLMs through a unified, OpenAI-compatible interface.
 
@@ -21,7 +17,7 @@ A hosted version is available at [ai.minoa.cat](https://ai.minoa.cat)
 
 1. Clone the repository:
 ```bash
-git clone https://github.com/m1noa/Sylph
+git clone https://github.com/M1noa/Sylph
 cd Sylph
 ```
 
