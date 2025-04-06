@@ -38,8 +38,12 @@ src/huggingface_login_cache
 *.com.txt
 <<<<<<< Updated upstream
 <<<<<<< Updated upstream
+<<<<<<< Updated upstream
 .history
 .roomodes
+=======
+.history
+>>>>>>> Stashed changes
 =======
 .history
 >>>>>>> Stashed changes
