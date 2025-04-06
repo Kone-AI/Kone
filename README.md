@@ -1,5 +1,9 @@
 <<<<<<< Updated upstream
+<<<<<<< Updated upstream
 # Sylph
+=======
+# Sylph API
+>>>>>>> Stashed changes
 =======
 # Sylph API
 >>>>>>> Stashed changes
@@ -22,7 +26,11 @@ A hosted version is available at [ai.minoa.cat](https://ai.minoa.cat)
 1. Clone the repository:
 ```bash
 <<<<<<< Updated upstream
+<<<<<<< Updated upstream
 git clone https://github.com/M1noa/Sylph
+=======
+git clone https://github.com/m1noa/Sylph
+>>>>>>> Stashed changes
 =======
 git clone https://github.com/m1noa/Sylph
 >>>>>>> Stashed changes
