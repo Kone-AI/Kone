@@ -147,6 +147,10 @@ class HealthCheck {
                 role: 'user',
                 content: prompt
             }], {
+                operation: 'health',
+                headers: {
+                    'User-Agent': 'SylphHealthCheck/1.0'
+                },
                 model,
                 temperature: 0.3,
                 max_tokens: 50

@@ -155,10 +155,31 @@ class GroqProvider {
     // groq doesn't support timeout option
     if (!model) {
       throw new Error('model is required');
-    }
-
     const baseModel = this.getBaseModelName(model);
     if (!this.models.has(this.formatModelName(baseModel))) {
+      throw {
+        message: `Model not found: ${baseModel}`,
+        type: 'invalid_request_error',
+        code: 'model_not_found',
+        param: 'model',
+        status: 404,
+        provider: this.constructor.name,
+        details: {
+          available_models: Array.from(this.models.keys())
+        }
+      };
+    }
+
+    // Log model details in debug mode
+    if (process.env.DEBUG_MODE === 'true') {
+      console.log('Groq request details:', {
+        provider: this.constructor.name,
+        requested_model: model,
+        base_model: baseModel,
+        stream: Boolean(stream),
+        active_key: this.apiKeys[this.activeKeyIndex]?.key ? '****' + this.apiKeys[this.activeKeyIndex].key.slice(-4) : 'none'
+      });
+    }
       throw new Error(`unsupported model: ${baseModel}`);
     }
 
@@ -188,8 +209,16 @@ class GroqProvider {
         return completion;
 
       } catch (error) {
+        // Enhanced error logging
         if (process.env.DEBUG_MODE === 'true') {
-          console.error('Groq API error:', error);
+          console.error('Groq API error:', {
+            message: error.message,
+            status: error.status,
+            code: error.error?.code,
+            model: baseModel,
+            key_index: this.activeKeyIndex,
+            response: error.response?.data
+          });
         }
 
         this.handleKeyError(error);

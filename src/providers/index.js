@@ -192,22 +192,24 @@ class ProviderManager {
     return !this.disabledProviders.has(provider.constructor.name);
   }
 
-  checkRateLimit(provider, isHealthCheck = false) {
-    // If rate limits are disabled, return early
-    if (process.env.DISABLE_RATE_LIMIT === 'true') return;
+  checkRateLimit(provider, operation = 'chat') {
+    // Always skip rate limiting for model listing and health checks
+    if (operation === 'models' || operation === 'health') {
+      return;
+    }
+
+    // Skip if rate limiting is disabled globally
+    if (process.env.DISABLE_RATE_LIMIT === 'true') {
+      return;
+    }
 
     const now = Date.now();
     const limit = this.rateLimits.get(provider.constructor.name);
+    let delay = limit?.delay || 1000;
 
-    // Different delays for health checks vs regular API requests
-    const windowMs = parseInt(process.env.RATE_LIMIT_WINDOW) || 60000;
-    const maxRequests = parseInt(process.env.RATE_LIMIT_REQUESTS) || 60;
-    const baseDelay = Math.floor(windowMs / maxRequests);
-
-    // For health checks, use the health check delay
-    const delay = isHealthCheck ?
-      (parseInt(process.env.HEALTH_CHECK_DELAY) || 26000) :
-      (limit?.delay || baseDelay);
+    if (process.env.ENABLE_HEALTH_CHECKS !== 'false') {
+      delay = parseInt(process.env.HEALTH_CHECK_DELAY) + 400;
+    }
 
     if (limit && now - limit.timestamp < delay) {
       throw new Error('rate limit exceeded');
@@ -226,7 +228,7 @@ class ProviderManager {
     for (const provider of this.providers) {
       if (!this.isProviderEnabled(provider) || !provider.enabled) continue;
       try {
-        this.checkRateLimit(provider, true);
+        this.checkRateLimit(provider, 'models');
         const providerModels = await provider.getModels();
         modelsByProvider.set(provider.constructor.name, providerModels);
         this.updateRateLimit(provider);
@@ -275,7 +277,7 @@ class ProviderManager {
     for (const provider of this.providers) {
       if (!this.isProviderEnabled(provider) || !provider.enabled) continue;
       try {
-        this.checkRateLimit(provider, false);
+        this.checkRateLimit(provider, 'models');
         if (await provider.canHandle(model)) return provider;
         this.updateRateLimit(provider);
       } catch (error) {
@@ -310,7 +312,7 @@ class ProviderManager {
     while (attempt < this.retryAttempts) {
       try {
         const provider = await this.getProviderForModel(model);
-        this.checkRateLimit(provider, false);
+        this.checkRateLimit(provider, 'chat');
         if (options.stream && !provider.supportsStreaming) {
           throw { message: `Streaming not supported by provider for model: ${model}`, type: 'invalid_request_error', param: 'stream', code: 'streaming_not_supported' };
         }

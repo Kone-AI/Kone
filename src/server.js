@@ -51,22 +51,85 @@ if (process.env.ENABLE_LOGGING !== 'false') {
             null;
     }));
 }
+// Configure rate limiting
+const getRateLimiter = () => {
+    if (process.env.DISABLE_RATE_LIMIT === 'true') {
+        return (req, res, next) => next();
+    }
 
-// Rate limiting
-if (process.env.DISABLE_RATE_LIMIT !== 'true') {
-    const limiter = rateLimit({
+    return rateLimit({
         windowMs: parseInt(process.env.RATE_LIMIT_WINDOW) || 60000,
         max: parseInt(process.env.RATE_LIMIT_REQUESTS) || 60,
-        // skip rate limiting for local ips cuz like why would you even rate limit yourself lmao
+        standardHeaders: true,
+        legacyHeaders: false,
+        
+        // Get correct IP when behind proxy
+        keyGenerator: (req) => {
+            let clientIP;
+            
+            // Use X-Forwarded-For when TRUST_PROXY is true
+            if (process.env.TRUST_PROXY === 'true' && req.headers['x-forwarded-for']) {
+                clientIP = req.headers['x-forwarded-for'].split(',')[0].trim();
+            } else {
+                clientIP = req.ip;
+            }
+            
+            logger.debug('Rate limit key generated', {
+                ip: clientIP,
+                path: req.path,
+                proxy: Boolean(req.headers['x-forwarded-for'])
+            });
+            
+            return clientIP;
+        },
+        
+        // Skip rate limiting for specific cases
         skip: (req) => {
+            // 1. System health checks
+            if (req.headers['user-agent']?.includes('SylphHealthCheck')) {
+                return true;
+            }
+            
+            // 2. Local requests
             const ip = req.ip;
-            return ip === '127.0.0.1' || ip === '::1' || ip === 'localhost';
+            if (ip === '127.0.0.1' || ip === '::1' || ip === 'localhost') {
+                return true;
+            }
+            
+            // 3. Model listing endpoint
+            if (req.path === '/v1/models') {
+                return true;
+            }
+            
+            return false;
+        },
+        
+        // Handler for when rate limit is hit
+        handler: (req, res) => {
+            logger.warn('Rate limit exceeded', {
+                ip: req.ip,
+                path: req.path,
+                proxy_ip: req.headers['x-forwarded-for']
+            });
+            
+            res.status(429).json({
+                error: {
+                    message: 'Too many requests, please try again later',
+                    type: 'rate_limit_error',
+                    code: 'rate_limit_exceeded'
+                }
+            });
         }
     });
-    app.use(limiter);
-    logger.info('Rate limiting enabled (local IPs exempt)', {
+};
+
+// Initialize rate limiter
+const rateLimiter = getRateLimiter();
+if (process.env.DISABLE_RATE_LIMIT !== 'true') {
+    logger.info('Rate limiting enabled for chat completions', {
         window: `${(parseInt(process.env.RATE_LIMIT_WINDOW) || 60000) / 1000}s`,
-        max: parseInt(process.env.RATE_LIMIT_REQUESTS) || 60
+        max: parseInt(process.env.RATE_LIMIT_REQUESTS) || 60,
+        proxy_support: process.env.TRUST_PROXY === 'true'
     });
 }
 
@@ -180,7 +243,7 @@ const sortedModels = [...models].sort((a, b) => {
     }
 });
 
-app.post('/v1/chat/completions', protectRoute, async (req, res) => {
+app.post('/v1/chat/completions', protectRoute, rateLimiter, async (req, res) => {
     try {
         const { model, messages, stream, ...options } = req.body;
 
