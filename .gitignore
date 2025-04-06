@@ -38,3 +38,4 @@ src/huggingface_login_cache
 *.com.txt
 .history
 .roomodes
+*.patch
