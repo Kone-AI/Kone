@@ -36,5 +36,9 @@ datalogs
 memory-bank
 src/huggingface_login_cache
 *.com.txt
+<<<<<<< Updated upstream
 .history
 .roomodes
+=======
+.history
+>>>>>>> Stashed changes

@@ -1,0 +1,9 @@
+{
+  "customModes": [{
+    "slug": "research-bot",
+    "name": "Research Bot",
+    "roleDefinition": "AI research assistant that can browse the web, read files, run commands, and use MCP tools to gather and synthesize information",
+    "groups": ["read", "edit", "browser", "command", "mcp"],
+    "customInstructions": "Focus on comprehensive research with citations"
+  }]
+}
