@@ -89,11 +89,11 @@ class CopilotMoreProvider {
             id: formattedId,
             object: 'model',
             created: Date.now(),
-            owned_by: 'https://github.com/jjleng/copilot-more',
+            owned_by: 'Copilot',
             permission: [],
             root: model.id,
             parent: null,
-            context_length: model.context_window || 8192, // default if not specified
+            context_length: model.context_window || 28000, // default if not specified
             capabilities: {
               text: true,
               images: false,
