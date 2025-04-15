@@ -93,7 +93,7 @@ class CopilotMoreProvider {
             permission: [],
             root: model.id,
             parent: null,
-            context_length: model.context_window || 28000, // default if not specified
+            context_length: model.context_window || 200000, // default if not specified
             capabilities: {
               text: true,
               images: false,
