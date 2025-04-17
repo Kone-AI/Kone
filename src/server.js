@@ -100,30 +100,54 @@ const getRateLimiter = () => {
         return (req, res, next) => next();
     }
 
+    // Parse rate limit settings
+    const windowMs = Math.max(parseInt(process.env.RATE_LIMIT_WINDOW) || 60000, 1000); // minimum 1 second
+    const maxRequests = parseInt(process.env.RATE_LIMIT_REQUESTS) || 60;
+    const rateType = process.env.RATE_LIMIT_TYPE?.toLowerCase() || 'ip';
+    const trustProxy = process.env.TRUST_PROXY === 'true';
+
+    // Log rate limit configuration
+    logger.debug('Rate limit configuration:', {
+        window: `${windowMs}ms`,
+        maxRequests,
+        type: rateType,
+        trustProxy
+    });
+
     return rateLimit({
-        windowMs: parseInt(process.env.RATE_LIMIT_WINDOW) || 60000,
-        max: parseInt(process.env.RATE_LIMIT_REQUESTS) || 60,
+        windowMs,
+        max: maxRequests,
         standardHeaders: true,
         legacyHeaders: false,
         
-        // Get correct IP when behind proxy
         keyGenerator: (req) => {
-            let clientIP;
+            let key = '';
             
-            // Use X-Forwarded-For when TRUST_PROXY is true
-            if (process.env.TRUST_PROXY === 'true' && req.headers['x-forwarded-for']) {
-                clientIP = req.headers['x-forwarded-for'].split(',')[0].trim();
-            } else {
-                clientIP = req.ip;
+            // IP-based rate limiting
+            if (rateType === 'ip' || rateType === 'both') {
+                let clientIP;
+                if (trustProxy && req.headers['x-forwarded-for']) {
+                    clientIP = req.headers['x-forwarded-for'].split(',')[0].trim();
+                } else {
+                    clientIP = req.ip;
+                }
+                key += `ip:${clientIP}`;
+            }
+            
+            // Token-based rate limiting
+            if (rateType === 'token' || rateType === 'both') {
+                const token = req.headers.authorization?.split(' ')[1] || 'anonymous';
+                key += `${key ? '+' : ''}token:${token}`;
             }
             
             logger.debug('Rate limit key generated', {
-                ip: clientIP,
+                key,
+                type: rateType,
                 path: req.path,
                 proxy: Boolean(req.headers['x-forwarded-for'])
             });
             
-            return clientIP;
+            return key;
         },
         
         // Skip rate limiting for specific cases
@@ -169,11 +193,18 @@ const getRateLimiter = () => {
 // Initialize rate limiter
 const rateLimiter = getRateLimiter();
 if (process.env.DISABLE_RATE_LIMIT !== 'true') {
-    logger.info('Rate limiting enabled for chat completions', {
-        window: `${(parseInt(process.env.RATE_LIMIT_WINDOW) || 60000) / 1000}s`,
-        max: parseInt(process.env.RATE_LIMIT_REQUESTS) || 60,
-        proxy_support: process.env.TRUST_PROXY === 'true'
+    const windowMs = Math.max(parseInt(process.env.RATE_LIMIT_WINDOW) || 60000, 1000);
+    const maxRequests = parseInt(process.env.RATE_LIMIT_REQUESTS) || 60;
+    const rateType = process.env.RATE_LIMIT_TYPE?.toLowerCase() || 'ip';
+    
+    logger.info('Rate limiting enabled', {
+        window: `${windowMs / 1000}s`,
+        requests_per_window: maxRequests,
+        limit_type: rateType,
+        trust_proxy: process.env.TRUST_PROXY === 'true'
     });
+} else {
+    logger.warn('Rate limiting is disabled');
 }
 
 // Config endpoint
@@ -378,23 +409,65 @@ app.post('/v1/chat/completions', protectRoute, rateLimiter, async (req, res) => 
     }
 });
 
-// Health check endpoint
-app.get('/health', (req, res) => {
-    const providerStatus = providers.getProviderStatus();
-    const modelHealthStatus = health.getStatus();
-    
-    // Set CORS headers for health check endpoint
-    res.setHeader('Content-Type', 'application/json');
-    res.setHeader('Access-Control-Allow-Origin', req.headers.origin || '*');
-    res.setHeader('Access-Control-Allow-Credentials', 'true');
-    res.setHeader('Access-Control-Allow-Methods', corsConfig.methods.join(','));
-    res.setHeader('Access-Control-Allow-Headers', corsConfig.allowedHeaders.join(','));
-    
-    res.json({
-        status: 'ok',
-        providers: providerStatus,
-        models: modelHealthStatus
-    });
+// Health check endpoint with rate limit override
+app.get('/health', async (req, res) => {
+    // Store original rate limit settings
+    const originalWindow = process.env.RATE_LIMIT_WINDOW;
+    const originalRequests = process.env.RATE_LIMIT_REQUESTS;
+
+    try {
+        // Only override rate limits if current settings are higher
+        const currentWindow = parseInt(process.env.RATE_LIMIT_WINDOW) || 60000;
+        const currentRequests = parseInt(process.env.RATE_LIMIT_REQUESTS) || 60;
+        const healthWindow = parseInt(process.env.HEALTH_CHECK_DELAY) || 2600;
+        const healthRequests = 5;
+
+        if (currentWindow > healthWindow || currentRequests > healthRequests) {
+            process.env.RATE_LIMIT_WINDOW = healthWindow.toString();
+            process.env.RATE_LIMIT_REQUESTS = healthRequests.toString();
+
+            logger.debug('Overriding rate limits for health check:', {
+                from: {
+                    window: `${currentWindow}ms`,
+                    requests: currentRequests
+                },
+                to: {
+                    window: `${healthWindow}ms`,
+                    requests: healthRequests
+                }
+            });
+        } else {
+            logger.debug('Keeping current rate limits for health check:', {
+                window: `${currentWindow}ms`,
+                requests: currentRequests
+            });
+        }
+
+        const providerStatus = providers.getProviderStatus();
+        const modelHealthStatus = health.getStatus();
+        
+        // Set CORS headers
+        res.setHeader('Content-Type', 'application/json');
+        res.setHeader('Access-Control-Allow-Origin', req.headers.origin || '*');
+        res.setHeader('Access-Control-Allow-Credentials', 'true');
+        res.setHeader('Access-Control-Allow-Methods', corsConfig.methods.join(','));
+        res.setHeader('Access-Control-Allow-Headers', corsConfig.allowedHeaders.join(','));
+        
+        res.json({
+            status: 'ok',
+            providers: providerStatus,
+            models: modelHealthStatus
+        });
+    } finally {
+        // Restore original rate limit settings
+        process.env.RATE_LIMIT_WINDOW = originalWindow;
+        process.env.RATE_LIMIT_REQUESTS = originalRequests;
+
+        logger.debug('Restored rate limits:', {
+            window: `${originalWindow}ms`,
+            max_requests: originalRequests
+        });
+    }
 });
 
 // 404 handler
