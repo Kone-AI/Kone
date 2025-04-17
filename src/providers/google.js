@@ -1,5 +1,9 @@
 // Google Provider
+// track key states and rotation
 class GoogleProvider {
+    #keyStates = new Map();
+    #keyRotationDelay = 60000; // 1 minute cooldown
+
     constructor() {
         // Load configuration
         this.enabled = process.env.ENABLE_GOOGLE !== 'false';
@@ -10,16 +14,26 @@ class GoogleProvider {
         this.lastUpdate = 0;
         this.updateInterval = 5 * 60 * 1000; // 5 minutes
 
+        // Initialize key states
+        [this.primaryKey, this.backupKey1, this.backupKey2].forEach(key => {
+            if (key) {
+                this.#keyStates.set(key, {
+                    lastError: null,
+                    errorCount: 0,
+                    cooldownUntil: 0
+                });
+            }
+        });
+
         // Enable if any key is available
         this.enabled = this.enabled && (this.primaryKey || this.backupKey1 || this.backupKey2);
 
-        if (this.enabled) {
-            const keys = {
+        if (this.enabled && process.env.DEBUG_MODE === 'true') {
+            console.log('Google initialized with keys:', {
                 primaryKey: this.primaryKey ? '****' + this.primaryKey.slice(-4) : 'none',
                 backupKey1: this.backupKey1 ? '****' + this.backupKey1.slice(-4) : 'none',
                 backupKey2: this.backupKey2 ? '****' + this.backupKey2.slice(-4) : 'none'
-            };
-            console.log('Google initialized with keys:', keys);
+            });
         }
     }
 
@@ -111,23 +125,6 @@ class GoogleProvider {
         }
     }
 
-    // track key states and rotation
-    #keyStates = new Map();
-    #keyRotationDelay = 60000; // 1 minute cooldown
-
-    constructor() {
-        super();
-        // Initialize key states
-        [this.primaryKey, this.backupKey1, this.backupKey2].forEach(key => {
-            if (key) {
-                this.#keyStates.set(key, {
-                    lastError: null,
-                    errorCount: 0,
-                    cooldownUntil: 0
-                });
-            }
-        });
-    }
 
     getApiKey() {
         const now = Date.now();
