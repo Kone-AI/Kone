@@ -155,6 +155,8 @@ class GroqProvider {
     // groq doesn't support timeout option
     if (!model) {
       throw new Error('model is required');
+    }
+
     const baseModel = this.getBaseModelName(model);
     if (!this.models.has(this.formatModelName(baseModel))) {
       throw {
@@ -179,8 +181,6 @@ class GroqProvider {
         stream: Boolean(stream),
         active_key: this.apiKeys[this.activeKeyIndex]?.key ? '****' + this.apiKeys[this.activeKeyIndex].key.slice(-4) : 'none'
       });
-    }
-      throw new Error(`unsupported model: ${baseModel}`);
     }
 
     // Try with all available keys

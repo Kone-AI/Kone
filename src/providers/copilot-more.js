@@ -3,7 +3,7 @@ import OpenAI from 'openai';
 
 class CopilotMoreProvider {
   constructor() {
-    // only need api url, no token needed
+    // only need api url, no token needed 
     this.enabled = Boolean(process.env.COPILOT_MORE_API_URL);
     
     // setup client with openai sdk
@@ -19,6 +19,7 @@ class CopilotMoreProvider {
     this.updateInterval = 5 * 60 * 1000; // 5 minutes
     this.retryAttempts = 3;
     this.retryDelay = 1000; // 1 second
+    this.healthCheckTimeout = 10000; // 10 second timeout for health checks
   }
 
   async sleep(ms) {
@@ -65,6 +66,37 @@ class CopilotMoreProvider {
     console.error(`model disabled due to error: ${fullName}`);
   }
 
+  async validateModel(model) {
+    // quick check if model is already known to be disabled
+    const formattedModel = this.formatModelName(model);
+    if (this.disabledModels.has(formattedModel)) {
+      return false;
+    }
+
+    try {
+      // do a quick health check with timeout
+      const controller = new AbortController();
+      const timeout = setTimeout(() => controller.abort(), this.healthCheckTimeout);
+
+      const response = await this.client.chat.completions.create({
+        model: this.getBaseModelName(model),
+        messages: [{ role: 'user', content: 'test' }],
+        max_tokens: 1
+      }, { signal: controller.signal });
+
+      clearTimeout(timeout);
+      return Boolean(response);
+    } catch (error) {
+      // specifically handle unsupported model errors
+      if (error.status === 400 && error.message?.includes('not supported')) {
+        this.disableModel(model);
+        return false;
+      }
+      // for other errors, assume model might still be valid
+      return true;
+    }
+  }
+
   async updateAvailableModels() {
     // if provider is not enabled, return empty list
     if (!this.enabled) {
@@ -84,7 +116,8 @@ class CopilotMoreProvider {
       this.models.clear();
       for (const model of models) {
         const formattedId = this.formatModelName(model.id);
-        if (!this.disabledModels.has(formattedId)) {
+        // only add models that pass validation
+        if (!this.disabledModels.has(formattedId) && await this.validateModel(model.id)) {
           this.models.set(formattedId, {
             id: formattedId,
             object: 'model',
@@ -163,6 +196,11 @@ class CopilotMoreProvider {
       throw new Error('model is required');
     }
 
+    // validate model is still supported
+    if (!await this.validateModel(model)) {
+      throw new Error('model not supported or disabled');
+    }
+
     const baseModel = this.getBaseModelName(model);
 
     // validate temperature
@@ -176,6 +214,8 @@ class CopilotMoreProvider {
     }
 
     let attempt = 0;
+    let lastError = null;
+
     while (attempt < this.retryAttempts) {
       try {
         // Create completion with the OpenAI SDK
@@ -199,6 +239,7 @@ class CopilotMoreProvider {
         // Return regular response
         return this.transformResponse(completion, model);
       } catch (error) {
+        lastError = error;
         attempt++;
 
         // Handle different error types
@@ -209,6 +250,11 @@ class CopilotMoreProvider {
         if (error.status === 402) {
           this.disableModel(model);
           throw new Error('model quota exceeded');
+        }
+
+        if (error.status === 400 && error.message?.includes('not supported')) {
+          this.disableModel(model);
+          throw new Error('model not supported');
         }
 
         if (error.status === 429) {
@@ -227,8 +273,10 @@ class CopilotMoreProvider {
           }
         }
 
-        // Unknown error
-        throw error;
+        // if we've hit max retries, throw the last error
+        if (attempt >= this.retryAttempts) {
+          throw lastError;
+        }
       }
     }
 
@@ -258,6 +306,10 @@ class CopilotMoreProvider {
       }
       if (error.status === 429) {
         throw new Error('rate limit exceeded');
+      }
+      if (error.status === 400 && error.message?.includes('not supported')) {
+        this.disableModel(model);
+        throw new Error('model not supported');
       }
       throw error;
     }

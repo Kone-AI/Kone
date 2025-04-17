@@ -73,23 +73,57 @@ class OpenRouterProvider {
     const now = Date.now();
     const currentKey = this.apiKeys[this.activeKeyIndex];
     if (currentKey) {
-      currentKey.lastError = now;
+      currentKey.lastError = {
+        timestamp: now,
+        error: error.message,
+        code: error.status || 'unknown'
+      };
+    }
+
+    // Log failed key attempt
+    if (process.env.DEBUG_MODE === 'true') {
+      logger.debug('OpenRouter key error:', {
+        key: '****' + currentKey?.key.slice(-4),
+        error: error.message,
+        status: error.status,
+        remainingKeys: this.apiKeys.length - 1
+      });
     }
 
     // Count how many keys are currently in error state
-    const failedKeys = this.apiKeys.filter(k => k.lastError && (now - k.lastError < this.keyRotationDelay));
+    const failedKeys = this.apiKeys.filter(k =>
+      k.lastError && (now - k.lastError.timestamp < this.keyRotationDelay)
+    );
     
     // If all keys have failed, disable the provider temporarily
     if (failedKeys.length === this.apiKeys.length) {
       this.lastProviderError = {
         timestamp: now,
-        error: error
+        error: error,
+        failedKeys: failedKeys.map(k => ({
+          key: '****' + k.key.slice(-4),
+          lastError: k.lastError
+        }))
       };
-      throw error;
+      throw new Error(`All API keys failed (${failedKeys.length} total): ${error.message}`);
     }
     
-    // Try next key
-    this.activeKeyIndex = (this.activeKeyIndex + 1) % this.apiKeys.length;
+    // Try next key with exponential backoff
+    let nextKeyIndex = (this.activeKeyIndex + 1) % this.apiKeys.length;
+    while (
+      this.apiKeys[nextKeyIndex].lastError &&
+      (now - this.apiKeys[nextKeyIndex].lastError.timestamp <
+       Math.min(this.keyRotationDelay * Math.pow(2, this.apiKeys[nextKeyIndex].lastError.attempts || 0),
+       1000 * 60 * 60)) // Max 1 hour backoff
+    ) {
+      nextKeyIndex = (nextKeyIndex + 1) % this.apiKeys.length;
+    }
+    
+    this.activeKeyIndex = nextKeyIndex;
+    if (this.apiKeys[nextKeyIndex].lastError) {
+      this.apiKeys[nextKeyIndex].lastError.attempts =
+        (this.apiKeys[nextKeyIndex].lastError.attempts || 0) + 1;
+    }
   }
 
   formatModelName(modelId) {

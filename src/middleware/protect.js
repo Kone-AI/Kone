@@ -1,8 +1,31 @@
-// middleware/protect.js - Authentication middleware
+// middleware/protect.js - Authentication middleware with rate limiting
 import fs from 'fs';
 import path from 'path';
 import { fileURLToPath } from 'url';
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
+
+// rate limit settings
+const defaultRateLimit = {
+    windowMs: 15 * 60 * 1000, // 15 minutes
+    maxRequests: 100 // default max requests per window
+};
+
+let currentRateLimit = { ...defaultRateLimit };
+
+// health check rate limit wrapper
+export function setHealthCheckRateLimit() {
+    // store previous settings
+    const previousSettings = { ...currentRateLimit };
+    
+    // set health check specific limits
+    currentRateLimit.windowMs = process.env.HEALTH_CHECK_DELAY || 60000; // 1 minute default
+    currentRateLimit.maxRequests = 5;
+    
+    return () => {
+        // restore original settings
+        currentRateLimit = previousSettings;
+    };
+}
 
 function loadApiKeys() {
     if (!process.env.REQUIRE_API_KEY || process.env.REQUIRE_API_KEY === 'false') {
@@ -22,6 +45,40 @@ function loadApiKeys() {
 const apiKeys = loadApiKeys();
 
 export default function protectRoute(req, res, next) {
+    // check rate limit
+    const clientIp = req.ip || req.connection.remoteAddress;
+    const now = Date.now();
+    
+    // initialize or get rate limit data for this IP
+    if (!global.rateLimits) global.rateLimits = new Map();
+    if (!global.rateLimits.has(clientIp)) {
+        global.rateLimits.set(clientIp, {
+            requests: [],
+            blocked: false
+        });
+    }
+    
+    const rateData = global.rateLimits.get(clientIp);
+    
+    // clean up old requests outside current window
+    rateData.requests = rateData.requests.filter(time =>
+        now - time < currentRateLimit.windowMs
+    );
+    
+    // check if rate limited
+    if (rateData.requests.length >= currentRateLimit.maxRequests) {
+        return res.status(429).json({
+            error: {
+                message: 'Too many requests, please try again later',
+                type: 'rate_limit_error',
+                code: 'rate_limit_exceeded'
+            }
+        });
+    }
+    
+    // add current request
+    rateData.requests.push(now);
+    
     if (!process.env.REQUIRE_API_KEY || process.env.REQUIRE_API_KEY === 'false') {
         return next();
     }

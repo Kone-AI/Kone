@@ -26,10 +26,21 @@ app.use(maintenanceMiddleware);
 app.use(express.json({ limit: process.env.MAX_PAYLOAD_SIZE || '10mb' }));
 app.use(express.urlencoded({ extended: true, limit: process.env.MAX_REQUEST_SIZE || '10mb' }));
 
-// CORS
-app.use(cors({
-    origin: process.env.ALLOWED_ORIGINS?.split(',') || '*'
-}));
+// CORS configuration
+const corsOptions = {
+    origin: process.env.ALLOWED_ORIGINS?.split(',') || '*',
+    methods: ['GET', 'POST', 'OPTIONS'],
+    allowedHeaders: ['Content-Type', 'Authorization', 'Accept'],
+    exposedHeaders: ['Content-Type', 'X-RateLimit-Limit', 'X-RateLimit-Remaining', 'X-RateLimit-Reset'],
+    credentials: true,
+    maxAge: 86400 // 24 hours
+};
+
+// Apply CORS middleware
+app.use(cors(corsOptions));
+
+// Handle CORS preflight requests
+app.options('*', cors(corsOptions));
 
 // Request logging
 if (process.env.ENABLE_LOGGING !== 'false') {
@@ -274,9 +285,12 @@ app.post('/v1/chat/completions', protectRoute, rateLimiter, async (req, res) => 
         const latency = Date.now() - requestStartTime;
 
         if (stream) {
+            // Set headers for SSE with CORS support
             res.setHeader('Content-Type', 'text/event-stream');
             res.setHeader('Cache-Control', 'no-cache');
             res.setHeader('Connection', 'keep-alive');
+            res.setHeader('Access-Control-Allow-Origin', corsOptions.origin === '*' ? '*' : req.headers.origin);
+            res.setHeader('Access-Control-Allow-Credentials', 'true');
 
             for await (const chunk of response) {
                 res.write(`data: ${JSON.stringify(chunk)}\n\n`);
@@ -372,12 +386,14 @@ async function startServer() {
             
             health.startHealthChecks((model, result) => {
                 const status = result.status === 'operational' ? 'healthy' : 'unhealthy';
+                /*
                 logger.debug(`[Health] Model ${model} ${status}:`, {
                     latency: result.latency,
                     error: result.error,
                     attempts: result.attempts,
                     response: result.response?.slice(0, 100) + (result.response?.length > 100 ? '...' : '') || 'null'
-                });
+                }); 
+                */
             }, interval);
 
             logger.debug('Health checks initialized', {

@@ -169,14 +169,37 @@ class MistralProvider {
       }
 
       try {
-        const completion = await this.client.chat.completions.create({
+        // format payload according to Mistral API specs
+        const payload = {
           model: baseModel,
-          messages,
-          stream,
-          temperature,
-          max_tokens,
+          messages: messages.map(msg => ({
+            role: msg.role,
+            content: msg.content
+          })),
+          stream: Boolean(stream),
+          temperature: temperature || 0.7,
+          max_tokens: max_tokens || undefined,
           ...otherOptions
-        });
+        };
+
+        // ensure proper headers
+        const headers = {
+          'Content-Type': 'application/json',
+          'Accept': 'application/json',
+          'Authorization': `Bearer ${this.getActiveKey()}`
+        };
+
+        const completion = await this.client.chat.completions.create(payload, { headers });
+
+        // handle 422 validation errors
+        if (completion.error?.status === 422) {
+          const validationError = new Error(
+            `Mistral API validation error: ${completion.error.message}`
+          );
+          validationError.status = 422;
+          validationError.details = completion.error.details;
+          throw validationError;
+        }
 
         // Handle streaming
         if (stream) {

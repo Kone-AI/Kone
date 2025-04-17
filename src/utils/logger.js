@@ -5,9 +5,10 @@ import path from 'path';
 
 class Logger {
     constructor() {
-        // separate debug mode from debug logging
+        // debug mode controls both file writing and console output
         this.DEBUG = process.env.DEBUG_MODE === 'true';
-        this.DEBUG_LOGGING = process.env.DEBUG_LOGGING !== 'false';
+        // debug file logging only happens when debug mode is false
+        this.DEBUG_FILE_LOGGING = process.env.DEBUG_FILE_LOGGING !== 'false';
         
         // colors for different log levels
         this.colors = {
@@ -53,11 +54,13 @@ class Logger {
     }
 
     debug(message, data = {}) {
-        // always write debug logs to file
-        this.writeToFile('debug', message, data);
+        // only write debug logs to file when not in debug mode
+        if (!this.DEBUG && this.DEBUG_FILE_LOGGING) {
+            this.writeToFile('debug', message, data);
+        }
         
-        // only show in terminal if debug logging is enabled
-        if (this.DEBUG_LOGGING) {
+        // only show debug logs in console when in debug mode
+        if (this.DEBUG) {
             console.log(this.format('debug', message, data));
         }
     }

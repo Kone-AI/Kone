@@ -111,25 +111,91 @@ class GoogleProvider {
         }
     }
 
-    // track which keys have hit rate limits
-    #rateLimitedKeys = new Set();
+    // track key states and rotation
+    #keyStates = new Map();
+    #keyRotationDelay = 60000; // 1 minute cooldown
 
-    getApiKey() {
-        // Get all available keys that aren't rate limited
-        const availableKeys = [this.primaryKey, this.backupKey1, this.backupKey2]
-            .filter(key => key && !this.#rateLimitedKeys.has(key));
-        
-        if (availableKeys.length === 0) {
-            // if all keys are rate limited, clear the set and try again
-            this.#rateLimitedKeys.clear();
-            return this.primaryKey || this.backupKey1 || this.backupKey2;
-        }
-
-        return availableKeys[Math.floor(Math.random() * availableKeys.length)];
+    constructor() {
+        super();
+        // Initialize key states
+        [this.primaryKey, this.backupKey1, this.backupKey2].forEach(key => {
+            if (key) {
+                this.#keyStates.set(key, {
+                    lastError: null,
+                    errorCount: 0,
+                    cooldownUntil: 0
+                });
+            }
+        });
     }
 
-    markKeyRateLimited(key) {
-        if (key) this.#rateLimitedKeys.add(key);
+    getApiKey() {
+        const now = Date.now();
+        const availableKeys = Array.from(this.#keyStates.entries())
+            .filter(([key, state]) => {
+                // Check if key is in cooldown
+                if (state.cooldownUntil > now) {
+                    return false;
+                }
+                // Reset error count if enough time has passed
+                if (state.lastError && (now - state.lastError) > this.#keyRotationDelay) {
+                    state.errorCount = 0;
+                    state.lastError = null;
+                }
+                return true;
+            })
+            .map(([key]) => key);
+
+        if (availableKeys.length === 0) {
+            // If all keys are in cooldown, choose the one with shortest remaining cooldown
+            const nextAvailableKey = Array.from(this.#keyStates.entries())
+                .reduce((best, [key, state]) => {
+                    if (!best || state.cooldownUntil < this.#keyStates.get(best).cooldownUntil) {
+                        return key;
+                    }
+                    return best;
+                }, null);
+
+            if (nextAvailableKey) {
+                // Reset its state and return it
+                this.#keyStates.get(nextAvailableKey).cooldownUntil = 0;
+                return nextAvailableKey;
+            }
+        }
+
+        // Choose key with lowest error count
+        return availableKeys.reduce((best, key) => {
+            if (!best || this.#keyStates.get(key).errorCount < this.#keyStates.get(best).errorCount) {
+                return key;
+            }
+            return best;
+        }, availableKeys[0]);
+    }
+
+    markKeyError(key, error) {
+        if (!key || !this.#keyStates.has(key)) return;
+
+        const state = this.#keyStates.get(key);
+        state.lastError = Date.now();
+        state.errorCount++;
+
+        // Exponential backoff for repeated errors
+        if (error.status === 429 || error.status === 403) {
+            state.cooldownUntil = Date.now() + (Math.min(
+                this.#keyRotationDelay * Math.pow(2, state.errorCount - 1),
+                1000 * 60 * 60 // Max 1 hour cooldown
+            ));
+        }
+
+        // Log key rotation in debug mode
+        if (process.env.DEBUG_MODE === 'true') {
+            console.log('Google API key error:', {
+                key: '****' + key.slice(-4),
+                error: error.message,
+                errorCount: state.errorCount,
+                cooldownUntil: new Date(state.cooldownUntil).toISOString()
+            });
+        }
     }
 
     async chat(messages, options = {}) {
@@ -174,16 +240,25 @@ if (!response.ok) {
     const error = await response.json();
     
     // silently handle rate limits by trying backup keys
+    // Handle quota and rate limit errors
     if (error.error?.message?.includes('quota') || error.error?.message?.includes('rate limit')) {
-        this.markKeyRateLimited(apiKey);
-                    
-                    // Try again with a different key if available
-                    const newKey = this.getApiKey();
-                    if (newKey && newKey !== apiKey) {
-                        // try again quietly with the new key
-                        return this.chat(messages, options);
-                    }
-                }
+        this.markKeyError(apiKey, error);
+            
+        // Try again with a different key
+        const newKey = this.getApiKey();
+        if (newKey && newKey !== apiKey) {
+            if (process.env.DEBUG_MODE === 'true') {
+                console.log('Retrying with new Google API key:', {
+                    previousKey: '****' + apiKey.slice(-4),
+                    newKey: '****' + newKey.slice(-4)
+                });
+            }
+            return this.chat(messages, options);
+        }
+        
+        // All keys exhausted
+        throw new Error('All Google API keys are rate limited or in cooldown');
+    }
                 
                 throw new Error(error.error?.message || `HTTP error! status: ${response.status}`);
             }
