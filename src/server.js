@@ -345,7 +345,18 @@ app.post('/v1/chat/completions', protectRoute, rateLimiter, async (req, res) => 
         }
 
     } catch (error) {
-        logger.error('Chat error:', error);
+        // Enhanced error logging with details
+        logger.error('Chat error:', {
+            message: error.message,
+            type: error.type || 'server_error',
+            status: error.status || 500,
+            code: error.code,
+            param: error.param,
+            model: req.body?.model,
+            path: req.path,
+            clientIP: req.ip,
+            timestamp: new Date().toISOString()
+        });
         
         const status = error.status || 500;
         const errorResponse = {
