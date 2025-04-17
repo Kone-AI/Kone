@@ -26,21 +26,53 @@ app.use(maintenanceMiddleware);
 app.use(express.json({ limit: process.env.MAX_PAYLOAD_SIZE || '10mb' }));
 app.use(express.urlencoded({ extended: true, limit: process.env.MAX_REQUEST_SIZE || '10mb' }));
 
-// CORS configuration
-const corsOptions = {
-    origin: process.env.ALLOWED_ORIGINS?.split(',') || '*',
+// CORS configuration with proper error handling
+const corsConfig = {
+    origin: function(origin, callback) {
+        const allowedOrigins = process.env.ALLOWED_ORIGINS?.split(',') || ['*'];
+        
+        // allow requests with no origin (like mobile apps or curl requests)
+        if (!origin || allowedOrigins.includes('*') || allowedOrigins.includes(origin)) {
+            callback(null, true);
+        } else {
+            callback(new Error('Not allowed by CORS'));
+        }
+    },
     methods: ['GET', 'POST', 'OPTIONS'],
-    allowedHeaders: ['Content-Type', 'Authorization', 'Accept'],
-    exposedHeaders: ['Content-Type', 'X-RateLimit-Limit', 'X-RateLimit-Remaining', 'X-RateLimit-Reset'],
+    allowedHeaders: ['Content-Type', 'Authorization', 'Accept', 'X-Requested-With'],
+    exposedHeaders: [
+        'Content-Type',
+        'X-RateLimit-Limit',
+        'X-RateLimit-Remaining',
+        'X-RateLimit-Reset',
+        'Access-Control-Allow-Origin'
+    ],
     credentials: true,
-    maxAge: 86400 // 24 hours
+    maxAge: 86400, // 24 hours
+    preflightContinue: false,
+    optionsSuccessStatus: 204
 };
 
 // Apply CORS middleware
-app.use(cors(corsOptions));
+app.use(cors(corsConfig));
 
-// Handle CORS preflight requests
-app.options('*', cors(corsOptions));
+// Additional CORS headers for all responses
+app.use((req, res, next) => {
+    // Set CORS headers for all responses
+    res.header('Access-Control-Allow-Origin', req.headers.origin || '*');
+    res.header('Access-Control-Allow-Credentials', 'true');
+    res.header('Access-Control-Allow-Methods', corsConfig.methods.join(','));
+    res.header('Access-Control-Allow-Headers', corsConfig.allowedHeaders.join(','));
+    res.header('Access-Control-Expose-Headers', corsConfig.exposedHeaders.join(','));
+    
+    // Handle preflight requests
+    if (req.method === 'OPTIONS') {
+        res.header('Access-Control-Max-Age', corsConfig.maxAge);
+        res.status(204).end();
+        return;
+    }
+    next();
+});
 
 // Request logging
 if (process.env.ENABLE_LOGGING !== 'false') {
@@ -285,12 +317,17 @@ app.post('/v1/chat/completions', protectRoute, rateLimiter, async (req, res) => 
         const latency = Date.now() - requestStartTime;
 
         if (stream) {
-            // Set headers for SSE with CORS support
+            // Set SSE headers
             res.setHeader('Content-Type', 'text/event-stream');
             res.setHeader('Cache-Control', 'no-cache');
             res.setHeader('Connection', 'keep-alive');
-            res.setHeader('Access-Control-Allow-Origin', corsOptions.origin === '*' ? '*' : req.headers.origin);
+            
+            // Set CORS headers specifically for SSE
+            res.setHeader('Access-Control-Allow-Origin', req.headers.origin || '*');
             res.setHeader('Access-Control-Allow-Credentials', 'true');
+            res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
+            res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization, Accept, X-Requested-With');
+            res.setHeader('Access-Control-Expose-Headers', 'Content-Type');
 
             for await (const chunk of response) {
                 res.write(`data: ${JSON.stringify(chunk)}\n\n`);
@@ -298,6 +335,12 @@ app.post('/v1/chat/completions', protectRoute, rateLimiter, async (req, res) => 
             res.write('data: [DONE]\n\n');
             res.end();
         } else {
+            // Set headers for regular JSON response
+            res.setHeader('Content-Type', 'application/json');
+            res.setHeader('Access-Control-Allow-Origin', req.headers.origin || '*');
+            res.setHeader('Access-Control-Allow-Credentials', 'true');
+            res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
+            res.setHeader('Access-Control-Allow-Headers', corsConfig.allowedHeaders.join(','));
             res.json(response);
         }
 
@@ -314,6 +357,12 @@ app.post('/v1/chat/completions', protectRoute, rateLimiter, async (req, res) => 
             }
         };
 
+        // Set CORS headers even for error responses
+        res.setHeader('Content-Type', 'application/json');
+        res.setHeader('Access-Control-Allow-Origin', req.headers.origin || '*');
+        res.setHeader('Access-Control-Allow-Credentials', 'true');
+        res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
+        res.setHeader('Access-Control-Allow-Headers', corsConfig.allowedHeaders.join(','));
         res.status(status).json(errorResponse);
     }
 });
@@ -323,7 +372,14 @@ app.get('/health', (req, res) => {
     const providerStatus = providers.getProviderStatus();
     const modelHealthStatus = health.getStatus();
     
-    res.json({ 
+    // Set CORS headers for health check endpoint
+    res.setHeader('Content-Type', 'application/json');
+    res.setHeader('Access-Control-Allow-Origin', req.headers.origin || '*');
+    res.setHeader('Access-Control-Allow-Credentials', 'true');
+    res.setHeader('Access-Control-Allow-Methods', corsConfig.methods.join(','));
+    res.setHeader('Access-Control-Allow-Headers', corsConfig.allowedHeaders.join(','));
+    
+    res.json({
         status: 'ok',
         providers: providerStatus,
         models: modelHealthStatus
@@ -340,9 +396,18 @@ app.use((req, res, next) => {
     }
 });
 
-// Error handler
+// Global error handler
 app.use((err, req, res, next) => {
     logger.error('Unhandled error:', err);
+
+    // Ensure CORS headers are set for error responses
+    res.setHeader('Content-Type', 'application/json');
+    res.setHeader('Access-Control-Allow-Origin', req.headers.origin || '*');
+    res.setHeader('Access-Control-Allow-Credentials', 'true');
+    res.setHeader('Access-Control-Allow-Methods', corsConfig.methods.join(','));
+    res.setHeader('Access-Control-Allow-Headers', corsConfig.allowedHeaders.join(','));
+    
+    // Send error response
     res.status(500).json({
         error: {
             message: 'Internal server error',
