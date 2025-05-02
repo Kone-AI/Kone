@@ -80,4 +80,4 @@ If you find Sylph helpful, consider:
 
 ## License
 
-MIT License - See [LICENSE](LICENSE) for details.
+ Opinionated Queer License v1.2 - See [LICENSE](LICENSE) [TL;DR](https://oql.avris.it/license.tldr)
