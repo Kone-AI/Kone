@@ -367,10 +367,10 @@ class OpenRouterProvider {
     
     // openrouter doesn't support timeout option
 
-    try {
-      // Remove openrouter/ prefix for API request
-      const baseModel = this.getBaseModelName(model);
+    // Remove openrouter/ prefix for API request
+    const baseModel = this.getBaseModelName(model);
 
+    try {
       // Clean up options and messages
       const cleanOptions = restOptions;
       const cleanMessages = messages.map(msg => ({
@@ -381,7 +381,10 @@ class OpenRouterProvider {
       // Setup request headers
       const headers = {
         'Authorization': `Bearer ${this.getCurrentKey()}`,
-        'Content-Type': 'application/json'
+        'Content-Type': 'application/json',
+        'HTTP-Referer': 'https://github.com/OpenRouterTeam/openrouter.dev', // Required for privacy settings
+        'X-Title': 'HackClub-API', // App name
+        'X-Privacy-Policy': 'true' // Enable data sharing/training
       };
 
       // Add Accept header for streaming
@@ -432,6 +435,14 @@ class OpenRouterProvider {
       // Handle regular response
       const completion = await response.json();
       
+      // Handle rate limit responses
+      if (completion.error) {
+        const error = new Error(completion.error.message || 'Unknown error');
+        error.status = completion.error.code;
+        error.details = completion.error.metadata;
+        throw error;
+      }
+      
       // Log raw response for debugging
       if (process.env.DEBUG_MODE === 'true') {
         logger.debug(`Raw response from ${baseModel}:`, {
@@ -444,12 +455,16 @@ class OpenRouterProvider {
         });
       }
 
-      try {
+      // Only transform valid responses
+      if (completion.choices?.[0]?.message?.content || completion.choices?.[0]?.delta?.content) {
         return this.transformResponse(completion, baseModel);
-      } catch (parseError) {
-        throw new Error(`Failed to parse model response: ${parseError.message}\nRaw response: ${JSON.stringify(completion)}`);
       }
+
+      throw new Error(`Invalid response from model: ${JSON.stringify(completion)}`);
     } catch (error) {
+      // Remove openrouter/ prefix for API request
+      const baseModel = this.getBaseModelName(model);
+
       if (process.env.DEBUG_MODE === 'true') {
         logger.error('OpenRouter API error:', {
           error: error.message,

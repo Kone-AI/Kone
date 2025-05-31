@@ -404,7 +404,7 @@
 
     <main class="models-container">
         <h1 class="site-header" onclick="location.href='/';">/models</h1>
-        <p class="text-muted text-center" style="opacity: 0.7; margin-bottom: 2rem;">Base URL for API requests: <code>{window.location.origin}/v1</code></p>
+        <p class="text-muted text-center" style="opacity: 0.7; margin-bottom: 2rem;">Base URL for API requests: <code id="baseUrlPlaceholder"></code></p>
         <div class="controls">
             <!-- Search -->
             <div class="search-box">
@@ -440,7 +440,14 @@
     </main>
 
     <script>
-        // Debounce function for search
+    document.addEventListener('DOMContentLoaded', () => {
+        // set the base url placeholder cause apparently just putting it in the html is too hard
+        const baseUrlElement = document.getElementById('baseUrlPlaceholder');
+        if (baseUrlElement) {
+            baseUrlElement.textContent = `${window.location.origin}/v1`;
+        }
+
+        // Debounce function for search - so we dont spam the filter thingy
         function debounce(func, wait) {
             let timeout;
             return function executedFunction(...args) {
@@ -724,6 +731,7 @@
         view.loadModels();
 
         // Manual refresh only
+    });
     </script>
 </body>
 </html>

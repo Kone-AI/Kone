@@ -1,20 +1,23 @@
 // copilot-more provider using the openai sdk - no auth needed which is pretty nice
 import OpenAI from 'openai';
+import BaseProvider from './base.js';
 
-class CopilotMoreProvider {
+class CopilotMoreProvider extends BaseProvider {
   constructor() {
-    // only need api url, no token needed 
-    this.enabled = Boolean(process.env.COPILOT_MORE_API_URL);
+    super({
+      name: 'CopilotMoreProvider',
+      baseURL: process.env.COPILOT_MORE_API_URL,
+      apiKeyRequired: false,
+      supportsStreaming: true
+    });
     
     // setup client with openai sdk
     this.client = this.enabled ? new OpenAI({
       apiKey: 'anything', // accepts any value
-      baseURL: process.env.COPILOT_MORE_API_URL
+      baseURL: this.baseURL
     }) : null;
 
-    this.supportsStreaming = true;
     this.disabledModels = new Set();
-    this.models = new Map();
     this.lastUpdate = 0;
     this.updateInterval = 5 * 60 * 1000; // 5 minutes
     this.retryAttempts = 3;
@@ -324,4 +327,4 @@ class CopilotMoreProvider {
   }
 }
 
-export default CopilotMoreProvider;
+export default new CopilotMoreProvider();

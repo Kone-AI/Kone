@@ -24,25 +24,16 @@ class GroqProvider {
     this.disabledModels = new Set();
     this.models = new Map();
 
-    // Initialize models Map
+    // Initialize models Map with only active models
     const modelsList = [
       { name: 'allam-2-7b', context_length: 1024, image_support: false },
-      { name: 'deepseek-r1-distill-llama-70b', context_length: 131072, image_support: false },
-      { name: 'deepseek-r1-distill-qwen-32b', context_length: 131072, image_support: false },
       { name: 'gemma2-9b-it', context_length: 8192, image_support: false },
       { name: 'llama-3.1-8b-instant', context_length: 131072, image_support: false },
-      { name: 'llama-3.2-11b-vision-preview', context_length: 131072, image_support: true },
-      { name: 'llama-3.2-1b-preview', context_length: 131072, image_support: false },
-      { name: 'llama-3.2-3b-preview', context_length: 131072, image_support: false },
-      { name: 'llama-3.2-90b-vision-preview', context_length: 131072, image_support: true },
       { name: 'llama-3.3-70b-specdec', context_length: 131072, image_support: false },
       { name: 'llama-3.3-70b-versatile', context_length: 131072, image_support: false },
       { name: 'llama-guard-3-8b', context_length: 8192, image_support: false },
       { name: 'llama3-70b-8192', context_length: 131072, image_support: false },
-      { name: 'llama3-8b-8192', context_length: 131072, image_support: false },
-      { name: 'qwen-2.5-32b', context_length: 131072, image_support: false },
-      { name: 'qwen-2.5-coder-32b', context_length: 131072, image_support: false },
-      { name: 'qwen-qwq-32b', context_length: 131072, image_support: false }
+      { name: 'llama3-8b-8192', context_length: 131072, image_support: false }
     ];
 
     // Remove models that require special terms
@@ -190,12 +181,19 @@ class GroqProvider {
       }
 
       try {
-        const completion = await this.client.chat.completions.create({
+        // Sanitize options to only include supported fields
+        const supportedOptions = {
           model: baseModel,
           messages,
           stream,
-          ...otherOptions
-        });
+          temperature: otherOptions.temperature,
+          max_tokens: otherOptions.max_tokens,
+          top_p: otherOptions.top_p,
+          frequency_penalty: otherOptions.frequency_penalty,
+          presence_penalty: otherOptions.presence_penalty
+        };
+
+        const completion = await this.client.chat.completions.create(supportedOptions);
 
         // Handle streaming
         if (stream) {
@@ -237,6 +235,11 @@ class GroqProvider {
           continue;
         }
 
+        // Check for decommissioned model error
+        if (error?.error?.code === 'model_decommissioned') {
+          this.disableModel(model);
+          throw new Error(`Model ${model} has been decommissioned and is no longer available`);
+        }
         throw error;
       }
     }

@@ -22,7 +22,8 @@ let stats = {
   totalRequests: 0,
   successfulRequests: 0,
   failedRequests: 0,
-  providers: {}
+  providers: {},
+  keys: {}  // New structure to track per-key usage
 };
 
 // load stats if they exist
@@ -71,11 +72,72 @@ export const trackInteraction = async ({
   messages,
   response,
   error,
-  startTime
+  startTime,
+  apiKey  // New parameter to track which key was used
 }) => {
   if (process.env.ENABLE_STATS !== 'true') return;
 
   stats.totalRequests++;
+  
+  // Track API key usage if provided
+  if (apiKey) {
+    // Initialize key stats if needed
+    if (!stats.keys[apiKey]) {
+      stats.keys[apiKey] = {
+        totalRequests: 0,
+        successfulRequests: 0,
+        failedRequests: 0,
+        models: {},
+        firstUse: Date.now(),
+        lastUse: null,
+        averageLatency: 0
+      };
+    }
+    
+    const keyStats = stats.keys[apiKey];
+    keyStats.totalRequests++;
+    keyStats.lastUse = Date.now();
+    
+    // Initialize model stats for this key if needed
+    if (!keyStats.models[model]) {
+      keyStats.models[model] = {
+        totalRequests: 0,
+        successfulRequests: 0,
+        failedRequests: 0,
+        totalTokens: 0,
+        averageLatency: 0,
+        lastRequest: null
+      };
+    }
+    
+    const keyModelStats = keyStats.models[model];
+    keyModelStats.totalRequests++;
+    
+    // Calculate latency
+    const latency = Date.now() - startTime;
+    keyModelStats.averageLatency =
+      (keyModelStats.averageLatency * (keyModelStats.totalRequests - 1) + latency) /
+      keyModelStats.totalRequests;
+    keyStats.averageLatency =
+      (keyStats.averageLatency * (keyStats.totalRequests - 1) + latency) /
+      keyStats.totalRequests;
+    
+    // Track success/failure
+    if (error) {
+      keyStats.failedRequests++;
+      keyModelStats.failedRequests++;
+    } else {
+      keyStats.successfulRequests++;
+      keyModelStats.successfulRequests++;
+      
+      // Track token usage
+      if (response?.usage?.total_tokens) {
+        keyModelStats.totalTokens += response.usage.total_tokens;
+      }
+    }
+    
+    keyModelStats.lastRequest = Date.now();
+  }
 
   // initialize provider stats
   if (!stats.providers[provider]) {
@@ -154,7 +216,10 @@ export const getStats = () => {
         : '0%',
       requestsPerMinute: stats.totalRequests > 0
         ? ((stats.totalRequests / uptime) * 60000).toFixed(2)
-        : '0'
+        : '0',
+      keyCount: Object.keys(stats.keys).length,
+      // Calculate total requests from keys
+      keyRequests: Object.values(stats.keys).reduce((sum, k) => sum + k.totalRequests, 0)
     }
   };
 };

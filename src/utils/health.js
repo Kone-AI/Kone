@@ -233,8 +233,14 @@ class HealthCheck {
                 return this.testModel(model, attempt + 1);
             }
 
-            const status = error.message === 'Timeout' ? 'unknown' : 'error';
+            // Determine status based on error type
+            let status = 'error';
             const statusCode = error.status || error.statusCode || error.code;
+            if (error.message === 'Timeout') {
+                status = 'unknown';
+            } else if (statusCode === 429) {
+                status = 'limited'; // Set status to 'limited' for rate limits
+            }
             
             // Log full error details for debugging
             logger.debug(`Model ${model} failed after ${attempt} attempts:`, {

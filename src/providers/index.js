@@ -1,55 +1,61 @@
 // providers/index.js - manage all our lovely ai friends
 import logger from '../utils/logger.js';
 
-// Import all providers
-import VoidsProvider from './voids.js';
-import OpenRouterProvider from './openrouter.js';
-import GoogleProvider from './google.js';
-import GlamaProvider from './glama.js';
-import GroqProvider from './groq.js';
-import HuggingChatProvider from './huggingchat.js';
-import HackClubProvider from './hackclub.js';
-import OpenAIProvider from './openai.js';
-import ClaudeProvider from './claude.js';
-import DeepseekProvider from './deepseek.js';
-import DeepseekFreeProvider from './deepseek-free.js';
-import TogetherProvider from './together.js';
-import PerplexityProvider from './perplexity.js';
-import CerebrasProvider from './cerebras.js';
-import FireworksProvider from './fireworks.js';
-import MistralProvider from './mistral.js';
-import DeepInfraProvider from './deepinfra.js';
-import CopilotMoreProvider from './copilot-more.js';
+// Only import providers that are enabled via environment variables
+const providers = [];
+
+// Helper to dynamically import enabled providers
+async function importProvider(name, path, noKeyRequired = false) {
+  if (process.env[`ENABLE_${name.toUpperCase()}`] !== 'false') {
+    try {
+      const module = await import(path);
+      providers.push({
+        instance: module.default,
+        name: `${name}Provider`,
+        envKey: noKeyRequired ? null : `${name.toUpperCase()}_API_KEY`
+      });
+    } catch (error) {
+      logger.error(`Failed to import ${name} provider:`, error);
+    }
+  }
+}
+
+// Import enabled providers
+await importProvider('VOIDS', './voids.js');
+await importProvider('OPENROUTER', './openrouter.js');
+await importProvider('DREAMGEN', './dreamgen.js');
+await importProvider('MENTION', './mention.js', true); // No API key needed
+await importProvider('GOOGLE', './google.js');
+await importProvider('GLAMA', './glama.js');
+await importProvider('GROQ', './groq.js');
+await importProvider('HUGGINGCHAT', './huggingchat.js', true); // Uses email/password
+await importProvider('HACKCLUB', './hackclub.js', true); // No API key needed
+await importProvider('OPENAI', './openai.js');
+await importProvider('CLAUDE', './claude.js');
+await importProvider('DEEPSEEK', './deepseek.js');
+await importProvider('DEEPSEEK_FREE', './deepseek-free.js');
+await importProvider('TOGETHER', './together.js');
+await importProvider('PERPLEXITY', './perplexity.js');
+await importProvider('CEREBRAS', './cerebras.js');
+await importProvider('FIREWORKS', './fireworks.js');
+await importProvider('MISTRAL', './mistral.js');
+await importProvider('DEEPINFRA', './deepinfra.js');
+await importProvider('COPILOT_MORE', './copilot-more.js', true); // Only needs URL
+await importProvider('LLMUI', './llm-ui.js', true); // No API key needed
 
 class ProviderManager {
   constructor() {
     this.providers = [];
     this.disabledProviders = new Set();
-    this.providerErrors = new Map();
-    this.rateLimits = new Map();
+    this.providerErrors = new Map(); // Tracks errors for status
+    this.rateLimits = new Map(); // { [providerName]: { timestamp: number, delay: number } } - Tracks last request time
+    this.rateLimitedProviders = new Map(); // { [providerName]: { limitedUntil: number, reason: string } } - Tracks temporary rate limits
     this.retryAttempts = 3;
     this.retryDelay = 1000;
+    this.rateLimitCooldown = 60 * 60 * 1000; // 1 hour cooldown for rate limits
     
-    this.providerConfigs = [
-      { instance: VoidsProvider, envKey: 'VOIDS_API_KEY', name: 'VoidsProvider' },
-      { instance: OpenRouterProvider, envKey: 'OPENROUTER_API_KEY', name: 'OpenRouterProvider' },
-      { instance: GoogleProvider, envKey: 'GOOGLE_API_KEY', name: 'GoogleProvider' },
-      { instance: GlamaProvider, envKey: 'GLAMA_API_KEY', name: 'GlamaProvider' },
-      { instance: GroqProvider, envKey: 'GROQ_API_KEY', name: 'GroqProvider' },
-      { instance: HuggingChatProvider, envKey: 'HUGGINGFACE_EMAIL', name: 'HuggingChatProvider' },
-      { instance: HackClubProvider, name: 'HackClubProvider' },
-      { instance: OpenAIProvider, envKey: 'OPENAI_API_KEY', name: 'OpenAIProvider' },
-      { instance: ClaudeProvider, envKey: 'ANTHROPIC_API_KEY', name: 'ClaudeProvider' },
-      { instance: DeepseekProvider, envKey: 'DEEPSEEK_API_KEY', name: 'DeepseekProvider' },
-      { instance: DeepseekFreeProvider, envKey: 'DEEPSEEK_FREE_API_KEY', name: 'DeepseekFreeProvider' },
-      { instance: TogetherProvider, envKey: 'TOGETHER_API_KEY', name: 'TogetherProvider' },
-      { instance: PerplexityProvider, envKey: 'PERPLEXITY_API_KEY', name: 'PerplexityProvider' },
-      { instance: CerebrasProvider, envKey: 'CEREBRAS_API_KEY', name: 'CerebrasProvider' },
-      { instance: FireworksProvider, envKey: 'FIREWORKS_API_KEY', name: 'FireworksProvider' },
-      { instance: MistralProvider, envKey: 'MISTRAL_API_KEY', name: 'MistralProvider' },
-      { instance: DeepInfraProvider, envKey: 'DEEPINFRA_API_KEY', name: 'DeepInfraProvider' },
-      { instance: CopilotMoreProvider, name: 'CopilotMoreProvider' }
-    ];
+    // Use dynamically loaded providers
+    this.providerConfigs = providers;
 
     this.initializeProviders();
   }
@@ -189,7 +195,38 @@ class ProviderManager {
   }
 
   isProviderEnabled(provider) {
-    return !this.disabledProviders.has(provider.constructor.name);
+    const providerName = provider.constructor.name;
+    if (this.disabledProviders.has(providerName)) {
+        // logger.debug(`Provider ${providerName} is permanently disabled.`);
+        return false; // Permanently disabled
+    }
+    // Check if temporarily rate-limited
+    const limitInfo = this.rateLimitedProviders.get(providerName);
+    if (limitInfo && Date.now() < limitInfo.limitedUntil) {
+        // logger.debug(`Provider ${providerName} is temporarily rate-limited until ${new Date(limitInfo.limitedUntil).toISOString()}.`);
+        return false; // Still rate-limited
+    } else if (limitInfo) {
+        // Cooldown expired, remove from rate-limited map
+        this.rateLimitedProviders.delete(providerName);
+        logger.info(`Provider rate limit cooldown expired: ${providerName}`);
+        // Also clear related errors for status display
+        if (this.providerErrors.has(providerName) && this.providerErrors.get(providerName).error.includes('rate limit')) {
+            this.providerErrors.delete(providerName);
+        }
+    }
+    return true; // Not disabled or rate-limited
+  }
+
+  // Sets a provider as rate-limited for a duration
+  setProviderRateLimited(providerName, reason) {
+    const limitedUntil = Date.now() + this.rateLimitCooldown;
+    this.rateLimitedProviders.set(providerName, { limitedUntil, reason });
+    logger.warn(`Provider ${providerName} is rate-limited until ${new Date(limitedUntil).toISOString()}. Reason: ${reason}`);
+    // Add error for status display, ensuring it reflects the temporary nature
+    this.providerErrors.set(providerName, {
+        error: `Temporarily rate limited: ${reason}`, // Indicate temporary nature
+        timestamp: Date.now()
+    });
   }
 
   checkRateLimit(provider, operation = 'chat') {
@@ -241,12 +278,13 @@ class ProviderManager {
         });
         errors.push({ provider: provider.constructor.name, error: error.message });
         
-        // Only disable provider on non-transient errors
-        if (error.status !== 429 && error.status !== 503) {
-          this.disableProvider(provider);
-        } else {
-          this.updateRateLimit(provider, 1000 * Math.pow(2, errors.length));
+        // Handle rate limits vs other errors
+        if (error.status === 429 || error.message.toLowerCase().includes('rate limit')) {
+            this.setProviderRateLimited(provider.constructor.name, error.message);
+        } else if (error.status !== 503) { // Don't disable for 503 (Service Unavailable)
+            this.disableProvider(provider);
         }
+        // No need for updateRateLimit here as setProviderRateLimited handles the cooldown implicitly
       }
     }
 
@@ -288,10 +326,11 @@ class ProviderManager {
           details: error.details || null
         });
         errors.push({ provider: provider.constructor.name, error: error.message });
-        if (error.status === 429 || error.status === 503) {
-          this.updateRateLimit(provider, 1000 * Math.pow(2, errors.length));
-        } else {
-          this.disableProvider(provider);
+        // Handle rate limits vs other errors
+        if (error.status === 429 || error.message.toLowerCase().includes('rate limit')) {
+            this.setProviderRateLimited(provider.constructor.name, error.message);
+        } else if (error.status !== 503) { // Don't disable for 503
+            this.disableProvider(provider);
         }
       }
     }
@@ -305,7 +344,25 @@ class ProviderManager {
 
   async chat(model, messages, options = {}) {
     if (!Array.isArray(messages) || messages.length === 0) throw new Error('messages must be a non-empty array');
-    messages.forEach(msg => this.validateMessage(msg));
+    
+    // Add detailed logging before validation
+    messages.forEach((msg, index) => {
+        try {
+            this.validateMessage(msg);
+        } catch (validationError) {
+            logger.error(`Message validation failed for message at index ${index}:`, {
+                messageContent: JSON.stringify(msg), // Log the problematic message
+                validationError: validationError.message,
+                model: model
+            });
+            // Re-throw the original error but attach context
+            validationError.message = `Invalid message content at index ${index}: ${validationError.message}`;
+            validationError.status = 500; // Internal server error due to bad data structure
+            validationError.type = 'server_error';
+            throw validationError;
+        }
+    });
+
     this.validateOptions(options);
     let attempt = 0;
     let lastError = null;
@@ -313,22 +370,59 @@ class ProviderManager {
       try {
         const provider = await this.getProviderForModel(model);
         this.checkRateLimit(provider, 'chat');
-        if (options.stream && !provider.supportsStreaming) {
-          throw { message: `Streaming not supported by provider for model: ${model}`, type: 'invalid_request_error', param: 'stream', code: 'streaming_not_supported' };
+
+        // Check for streaming support
+        if (options.stream) {
+          if (provider.supportsStreaming === true) {
+            // Provider supports streaming, call it directly
+            const responseStream = await provider.chat(messages, { ...options, model });
+            this.updateRateLimit(provider); // Update rate limit after successful call initiation
+            return responseStream; // Return the async generator
+          } else {
+            // Provider does NOT support streaming, implement fake streaming
+            logger.debug(`Provider ${provider.constructor.name} does not support streaming for ${model}. Faking stream.`);
+            // Call without stream option
+            const fullResponse = await provider.chat(messages, { ...options, stream: false, model });
+            this.updateRateLimit(provider);
+            // Convert the full response to a stream
+            return this._fakeStreamResponse(fullResponse, model);
+          }
+        } else {
+          // Non-streaming request
+          const response = await provider.chat(messages, { ...options, model });
+          this.updateRateLimit(provider);
+          return response;
         }
-        const response = await provider.chat(messages, { ...options, model });
-        this.updateRateLimit(provider);
-        return response;
       } catch (error) {
         attempt++;
         lastError = error;
         
         // Handle transient errors differently
-        if ((error.status === 429 || error.status === 503) && attempt < this.retryAttempts) {
-          const delay = this.retryDelay * Math.pow(2, attempt - 1);
-          await this.sleep(delay);
-          continue;
-        } else if (error.status >= 500 && attempt < this.retryAttempts) {
+        // Handle transient errors (including rate limits for retry purposes)
+        if ((error.status === 429 || error.status === 503 || error.message.toLowerCase().includes('rate limit')) && attempt < this.retryAttempts) {
+            // If it's a rate limit error, mark the provider as rate limited
+            if (error.status === 429 || error.message.toLowerCase().includes('rate limit')) {
+                // Get provider name - might need to fetch it again if error doesn't contain it
+                let providerName = error.provider;
+                if (!providerName) {
+                    try {
+                        // Attempt to get provider name from the model, handle potential failure
+                        const failedProvider = await this.getProviderForModel(model);
+                        providerName = failedProvider.constructor.name;
+                    } catch (e) {
+                        logger.warn(`Could not determine provider name for rate limit error on model ${model}`);
+                    }
+                }
+                if (providerName) {
+                    this.setProviderRateLimited(providerName, error.message);
+                }
+            }
+            // Apply delay and retry
+            const delay = this.retryDelay * Math.pow(2, attempt - 1);
+            logger.debug(`Transient error for ${model} (attempt ${attempt}/${this.retryAttempts}), retrying in ${delay}ms...`, { error: error.message, status: error.status });
+            await this.sleep(delay);
+            continue;
+        } else if (error.status >= 500 && error.status !== 503 && attempt < this.retryAttempts) { // Exclude 503 from generic 500 retry
           await this.sleep(this.retryDelay);
           continue;
         }
@@ -341,22 +435,89 @@ class ProviderManager {
               timestamp: Date.now() 
             });
           }
-          if (error.status === 401 || error.status === 403) {
+          // Disable provider on fatal auth errors (401/403), but not for rate limits (429)
+          if ((error.status === 401 || error.status === 403) && error.provider) {
             this.disableProvider({ constructor: { name: error.provider }});
           }
         }
         throw error;
       }
     }
-    throw new Error(`Max retry attempts exceeded. Last error: ${lastError.message}`);
+    throw new Error(`Max retry attempts exceeded. Last error: ${lastError?.message || 'Unknown error'}`);
   }
+
+  // Helper function to simulate streaming from a full response
+  async* _fakeStreamResponse(fullResponse, model) {
+    const completionId = fullResponse.id || `fake-${Date.now()}`;
+    const created = fullResponse.created || Date.now();
+    const choice = fullResponse.choices?.[0];
+
+    if (!choice || !choice.message || typeof choice.message.content !== 'string') {
+      logger.error('Cannot fake stream: Invalid full response format.', fullResponse);
+      // Yield a single error chunk? Or just end? Let's end.
+      return;
+    }
+
+    const content = choice.message.content;
+    const finishReason = choice.finish_reason || 'stop';
+
+    // 1. Yield initial role chunk
+    yield {
+      id: completionId,
+      object: 'chat.completion.chunk',
+      created: created,
+      model: model, // Use the requested model name
+      choices: [{
+        index: 0,
+        delta: { role: 'assistant', content: '' }, // Start with role and empty content
+        finish_reason: null
+      }]
+    };
+
+    // 2. Yield content chunks (split into smaller parts for simulation)
+    // Simple split by word, could be more sophisticated (e.g., by sentence or token count estimate)
+    const words = content.split(/(\s+)/); // Split by space, keeping spaces
+    for (let i = 0; i < words.length; i++) {
+       // Add a small delay to simulate network latency
+       await this.sleep(10); // 10ms delay between chunks
+
+       yield {
+         id: completionId,
+         object: 'chat.completion.chunk',
+         created: created,
+         model: model,
+         choices: [{
+           index: 0,
+           delta: { content: words[i] },
+           finish_reason: null
+         }]
+       };
+    }
+
+
+    // 3. Yield final chunk with finish reason
+    yield {
+      id: completionId,
+      object: 'chat.completion.chunk',
+      created: created,
+      model: model,
+      choices: [{
+        index: 0,
+        delta: {}, // Empty delta
+        finish_reason: finishReason
+      }]
+    };
+  }
+
 
   getProviderStatus() {
     return {
+      // Combine permanently disabled and temporarily rate-limited providers for status
       available: this.providers.filter(p => p.enabled && this.isProviderEnabled(p)).map(p => p.constructor.name),
       disabled: Array.from(this.disabledProviders),
+      rate_limited: Object.fromEntries(Array.from(this.rateLimitedProviders.entries()).map(([name, info]) => [name, { until: new Date(info.limitedUntil).toISOString(), reason: info.reason }])),
       errors: Object.fromEntries(this.providerErrors),
-      rateLimits: Object.fromEntries(this.rateLimits)
+      // rateLimits map is internal timing detail, maybe not needed in public status
     };
   }
 }

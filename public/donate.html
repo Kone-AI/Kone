@@ -4,7 +4,9 @@
     <title>Donate - Sylph</title>
     <link rel="stylesheet" href="/styles.css">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description" content="Support Sylph development and get an API key to bypass rate limits">
     <script defer src="https://analytics.minoa.cat/script.js" data-website-id="dba618bd-576d-4166-a280-e38df64bf53f"></script>
+    <script src="https://challenges.cloudflare.com/turnstile/v0/api.js" async defer></script>
     <style>
         .donate-container {
             max-width: 1200px;
@@ -223,64 +225,135 @@
     </style>
 </head>
 <body>
+    <!-- Error Modal -->
+    <div id="errorModal" class="modal">
+        <div class="modal-content">
+            <h2>Oops! Something went wrong</h2>
+            <p>An error has occurred. Please use <a href="https://sylph.sell.app/product/donate" target="_blank">this link</a> instead until it's fixed.</p>
+            <button class="copy-button" onclick="document.getElementById('errorModal').style.display='none';">
+                Close
+            </button>
+        </div>
+    </div>
+
     <div class="donate-container">
         <h1 class="site-header" onclick="location.href='/'">/donate</h1>
         <p class="text-center text-muted" style="font-size: 1.2rem; margin-bottom: 2rem;">Support the development and hosting of Sylph</p>
-
-        <!-- PayPal Card (centered) -->
-        <div class="paypal-section">
-        <div class="donate-card" onclick="window.location.href='https://paypal.me/m1noa'">
-            <div class="donate-header">
-                <div class="donate-icon">
-                    <svg xmlns="http://www.w3.org/2000/svg" width="48" height="48" viewBox="-2 -2 24 24"><g fill="#003fb0"><path d="m8.252 13.405l-.006.036a.47.47 0 0 1-.462.388h-1.32a.465.465 0 0 1-.457-.542l1.329-7.9A.465.465 0 0 1 7.794 5H11.4c1.192 0 2.158.966 2.158 2.158q0 .213-.026.42c.483.342.798.906.798 1.543a2.98 2.98 0 0 1-2.982 2.982h-.303a.7.7 0 0 0-.688.582l-.164.974l.164-.974a.7.7 0 0 1 .688-.582h.303a2.98 2.98 0 0 0 2.982-2.982c0-.637-.315-1.2-.798-1.544a3.4 3.4 0 0 1-3.372 2.98H9.155a.505.505 0 0 0-.485.364l-.602 3.576a.41.41 0 0 0 .404.478h1.154c.2 0 .37-.145.404-.342l.164-.974l-.164.974a.41.41 0 0 1-.404.342H8.472a.408.408 0 0 1-.404-.478z"/><path d="M13.967 8c.19.295.301.647.301 1.025a2.98 2.98 0 0 1-2.981 2.982h-.304a.7.7 0 0 0-.688.582l-.327 1.949a.41.41 0 0 1-.404.341H8.507l.6-3.56a.505.505 0 0 1 .484-.366h1.007A3.4 3.4 0 0 0 13.967 8m-5.46 6.88H8.41a.41.41 0 0 1-.404-.478l.03-.176h.185a.47.47 0 0 0 .461-.388l.007-.036l-.182 1.077z"/><path d="M4 2a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V4a2 2 0 0 0-2-2zm0-2h12a4 4 0 0 1 4 4v12a4 4 0 0 1-4 4H4a4 4 0 0 1-4-4V4a4 4 0 0 1 4-4"/></g></svg>
-                </div>
-                <h2 class="donate-title">PayPal</h2>
+        
+        <!-- Premium API Key Section - Main CTA -->
+        <!-- Premium API Key Section -->
+        <div class="premium-card" id="premium-section" style="display: none;">
+            <h2>Get an API Key - Bypass Rate Limits</h2>
+            <p>Starting at $3, receive a personal API key that lets you bypass rate limits</p>
+            
+            <div style="max-width: 500px; margin: 2rem auto; padding: 1.5rem; background: rgba(0,0,0,0.2); border-radius: 8px; border: 1px solid var(--border);">
+                <form id="donation-form" style="display: none;">
+                    <div style="margin-bottom: 1.5rem;">
+                        <label style="display: block; margin-bottom: 0.5rem; color: var(--text-bright);">Amount (Minimum $3)</label>
+                        <input type="number" id="donation-amount" min="3" value="5" step="1" style="width: 100%; padding: 0.8rem; border-radius: 6px; background: rgba(0,0,0,0.3); border: 1px solid var(--border); color: var(--text);" required>
+                        <div id="amount-preview" style="margin-top: 0.5rem; text-align: center; font-size: 1.2rem; color: var(--text-bright);">$5.00</div>
+                    </div>
+                    
+                    <div style="margin-bottom: 1.5rem;">
+                        <label style="display: block; margin-bottom: 0.5rem; color: var(--text-bright);">Email (for your API key)</label>
+                        <input type="email" id="email" required placeholder="your@email.com" style="width: 100%; padding: 0.8rem; border-radius: 6px; background: rgba(0,0,0,0.3); border: 1px solid var(--border); color: var(--text);">
+                    </div>
+                    
+                    <div style="margin-bottom: 1.5rem;">
+                        <label style="display: block; margin-bottom: 0.5rem; color: var(--text-bright);">Payment Method</label>
+                        <select id="payment-method" style="width: 100%; padding: 0.8rem; border-radius: 6px; background: rgba(0,0,0,0.3); border: 1px solid var(--border); color: var(--text);">
+                            <option value="PAYPAL">PayPal</option>
+                            <option value="CASHAPP">Cash App</option>
+                            <option value="BTC">Bitcoin</option>
+                            <option value="LTC">Litecoin</option>
+                            <option value="ETH">Ethereum</option>
+                            <option value="XMR">Monero</option>
+                        </select>
+                    </div>
+                    
+                    <div style="margin-bottom: 1.5rem;">
+                        <label style="display: block; margin-bottom: 0.5rem; color: var(--text-bright);">Coupon Code (Optional)</label>
+                        <input type="text" id="coupon" placeholder="Enter coupon code" style="width: 100%; padding: 0.8rem; border-radius: 6px; background: rgba(0,0,0,0.3); border: 1px solid var(--border); color: var(--text);">
+                    </div>
+                    
+                    <div class="turnstile" style="margin-bottom: 1.5rem;">
+                        <div class="cf-turnstile" data-sitekey="0x4AAAAAA"></div>
+                    </div>
+                    
+                    <button type="submit" id="submit-button" style="width: 100%; padding: 1rem; border-radius: 6px; background: linear-gradient(135deg, rgba(255, 192, 203, 0.3) 0%, rgba(255, 150, 180, 0.4) 100%); color: var(--text-bright); border: none; cursor: pointer; font-size: 1.1rem; font-weight: bold;">
+                        Purchase API Key
+                    </button>
+                </form>
             </div>
-            <p class="donate-description">Support via PayPal (preferred)</p>
+        <div style="text-align: center; margin: 3rem 0;">
+            <hr style="border: none; height: 1px; background: var(--border); margin: 2rem 0;">
+            <span style="background: var(--background); padding: 0 1rem; position: relative; top: -2rem; color: var(--text-muted);">Other Ways to Support</span>
         </div>
 
-        </div>
-
-        <!-- Crypto Cards (2 per row) -->
-        <div class="crypto-grid">
-            <div class="donate-card" onclick="showWallet('eth')">
-                <div class="donate-header">
-                    <div class="donate-icon">
-                        <svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 32 32"><g fill="none" fill-rule="evenodd"><circle cx="16" cy="16" r="16" fill="#627eea"/><g fill="#fff" fill-rule="nonzero"><path fill-opacity="0.602" d="M16.498 4v8.87l7.497 3.35z"/><path d="M16.498 4L9 16.22l7.498-3.35z"/><path fill-opacity="0.602" d="M16.498 21.968v6.027L24 17.616z"/><path d="M16.498 27.995v-6.028L9 17.616z"/><path fill-opacity="0.2" d="m16.498 20.573l7.497-4.353l-7.497-3.348z"/><path fill-opacity="0.602" d="m9 16.22l7.498 4.353v-7.701z"/></g></g></svg>
+        <!-- Collapsible section for other donation options -->
+        <details style="margin-bottom: 2rem; padding: 1rem; background: rgba(0,0,0,0.2); border-radius: 8px; border: 1px solid var(--border);">
+            <summary style="cursor: pointer; font-size: 1.2rem; color: var(--text-bright); padding: 0.5rem;">
+                Direct Donations via PayPal and Cryptocurrency
+            </summary>
+            
+            <div style="padding-top: 1.5rem;">
+                <!-- PayPal Card -->
+                <div class="paypal-section">
+                    <div class="donate-card" onclick="window.location.href='https://paypal.me/m1noa'">
+                        <div class="donate-header">
+                            <div class="donate-icon">
+                                <svg xmlns="http://www.w3.org/2000/svg" width="48" height="48" viewBox="-2 -2 24 24"><g fill="#003fb0"><path d="m8.252 13.405l-.006.036a.47.47 0 0 1-.462.388h-1.32a.465.465 0 0 1-.457-.542l1.329-7.9A.465.465 0 0 1 7.794 5H11.4c1.192 0 2.158.966 2.158 2.158q0 .213-.026.42c.483.342.798.906.798 1.543a2.98 2.98 0 0 1-2.982 2.982h-.303a.7.7 0 0 0-.688.582l-.164.974l.164-.974a.7.7 0 0 1 .688-.582h.303a2.98 2.98 0 0 0 2.982-2.982c0-.637-.315-1.2-.798-1.544a3.4 3.4 0 0 1-3.372 2.98H9.155a.505.505 0 0 0-.485.364l-.602 3.576a.41.41 0 0 0 .404.478h1.154c.2 0 .37-.145.404-.342l.164-.974l-.164.974a.41.41 0 0 1-.404.342H8.472a.408.408 0 0 1-.404-.478z"/><path d="M13.967 8c.19.295.301.647.301 1.025a2.98 2.98 0 0 1-2.981 2.982h-.304a.7.7 0 0 0-.688.582l-.327 1.949a.41.41 0 0 1-.404.341H8.507l.6-3.56a.505.505 0 0 1 .484-.366h1.007A3.4 3.4 0 0 0 13.967 8m-5.46 6.88H8.41a.41.41 0 0 1-.404-.478l.03-.176h.185a.47.47 0 0 0 .461-.388l.007-.036l-.182 1.077z"/><path d="M4 2a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V4a2 2 0 0 0-2-2zm0-2h12a4 4 0 0 1 4 4v12a4 4 0 0 1-4 4H4a4 4 0 0 1-4-4V4a4 4 0 0 1 4-4"/></g></svg>
+                            </div>
+                            <h2 class="donate-title">PayPal</h2>
+                        </div>
+                        <p class="donate-description">Support via PayPal (preferred)</p>
                     </div>
-                    <h2 class="donate-title">Ethereum</h2>
                 </div>
-                <p class="donate-description">Support via ETH on the Ethereum network</p>
+
+                <!-- Crypto Cards (2 per row) -->
+                <div class="crypto-grid">
+                    <div class="donate-card" onclick="showWallet('eth')">
+                        <div class="donate-header">
+                            <div class="donate-icon">
+                                <svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 32 32"><g fill="none" fill-rule="evenodd"><circle cx="16" cy="16" r="16" fill="#627eea"/><g fill="#fff" fill-rule="nonzero"><path fill-opacity="0.602" d="M16.498 4v8.87l7.497 3.35z"/><path d="M16.498 4L9 16.22l7.498-3.35z"/><path fill-opacity="0.602" d="M16.498 21.968v6.027L24 17.616z"/><path d="M16.498 27.995v-6.028L9 17.616z"/><path fill-opacity="0.2" d="m16.498 20.573l7.497-4.353l-7.497-3.348z"/><path fill-opacity="0.602" d="m9 16.22l7.498 4.353v-7.701z"/></g></g></svg>
+                            </div>
+                            <h2 class="donate-title">Ethereum</h2>
+                        </div>
+                        <p class="donate-description">Support via ETH on the Ethereum network</p>
+                    </div>
+
+                    <div class="donate-card" onclick="showWallet('sol')">
+                        <div class="donate-header">
+                            <div class="donate-icon">
+                                <svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 32 32"><g fill="none"><circle cx="16" cy="16" r="16" fill="#66f9a1"/><path fill="#fff" d="M9.925 19.687a.6.6 0 0 1 .415-.17h14.366a.29.29 0 0 1 .207.497l-2.838 2.815a.6.6 0 0 1-.415.171H7.294a.291.291 0 0 1-.207-.498zm0-10.517A.6.6 0 0 1 10.34 9h14.366c.261 0 .392.314.207.498l-2.838 2.815a.6.6 0 0 1-.415.17H7.294a.291.291 0 0 1-.207-.497zm12.15 5.225a.6.6 0 0 0-.415-.17H7.294a.291.291 0 0 0-.207.498l2.838 2.815c.11.109.26.17.415.17h14.366a.291.291 0 0 0 .207-.498z"/></g></svg>
+                            </div>
+                            <h2 class="donate-title">Solana</h2>
+                        </div>
+                        <p class="donate-description">Support via SOL on the Solana network</p>
+                    </div>
+
+                    <div class="donate-card" onclick="showWallet('btc')">
+                        <div class="donate-header">
+                            <div class="donate-icon">
+                                <svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 32 32"><g fill="none" fill-rule="evenodd"><circle cx="16" cy="16" r="16" fill="#f7931a"/><path fill="#fff" fill-rule="nonzero" d="M23.189 14.02c.314-2.096-1.283-3.223-3.465-3.975l.708-2.84l-1.728-.43l-.69 2.765c-.454-.114-.92-.22-1.385-.326l.695-2.783L15.596 6l-.708 2.839q-.565-.127-1.104-.26l.002-.009l-2.384-.595l-.46 1.846s1.283.294 1.256.312c.7.175.826.638.805 1.006l-.806 3.235q.073.017.18.057l-.183-.045l-1.13 4.532c-.086.212-.303.531-.793.41c.018.025-1.256-.313-1.256-.313l-.858 1.978l2.25.561c.418.105.828.215 1.231.318l-.715 2.872l1.727.43l.708-2.84q.707.19 1.378.357l-.706 2.828l1.728.43l.715-2.866c2.948.558 5.164.333 6.097-2.333c.752-2.146-.037-3.385-1.588-4.192c1.13-.26 1.98-1.003 2.207-2.538m-3.95 5.538c-.533 2.147-4.148.986-5.32.695l.95-3.805c1.172.293 4.929.872 4.37 3.11m.535-5.569c-.487 1.953-3.495.96-4.47.717l.86-3.45c.975.243 4.118.696 3.61 2.733"/></g></svg>
+                            </div>
+                            <h2 class="donate-title">Bitcoin</h2>
+                        </div>
+                        <p class="donate-description">Support via BTC on the Bitcoin network</p>
+                    </div>
+
+                    <div class="donate-card disabled">
+                        <div class="donate-header">
+                            <div class="donate-icon">
+                                <svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 24 24"><path fill="#f60" d="M12 3a8.99 8.99 0 0 1 8.543 11.813h-2.918V7.288l-5.633 5.869l-5.617-5.861v7.517H3.457A8.9 8.9 0 0 1 3 12.008C3 7.03 7.026 3 12 3m.025 12.822l3.912-3.914V16.5h3.749C18.022 19.246 15.254 21.002 12 21c-3.244 0-6.098-1.91-7.686-4.5h3.748v-4.592z"/></svg>
+                            </div>
+                            <h2 class="donate-title">Monero</h2>
+                        </div>
+                        <p class="donate-description">Coming soon...</p>
+                    </div>
+                </div>
             </div>
-
-            <div class="donate-card" onclick="showWallet('sol')">
-                <div class="donate-header">
-                    <div class="donate-icon">
-                        <svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 32 32"><g fill="none"><circle cx="16" cy="16" r="16" fill="#66f9a1"/><path fill="#fff" d="M9.925 19.687a.6.6 0 0 1 .415-.17h14.366a.29.29 0 0 1 .207.497l-2.838 2.815a.6.6 0 0 1-.415.171H7.294a.291.291 0 0 1-.207-.498zm0-10.517A.6.6 0 0 1 10.34 9h14.366c.261 0 .392.314.207.498l-2.838 2.815a.6.6 0 0 1-.415.17H7.294a.291.291 0 0 1-.207-.497zm12.15 5.225a.6.6 0 0 0-.415-.17H7.294a.291.291 0 0 0-.207.498l2.838 2.815c.11.109.26.17.415.17h14.366a.291.291 0 0 0 .207-.498z"/></g></svg>
-                    </div>
-                    <h2 class="donate-title">Solana</h2>
-                </div>
-                <p class="donate-description">Support via SOL on the Solana network</p>
-            </div>
-
-            <div class="donate-card" onclick="showWallet('btc')">
-                <div class="donate-header">
-                    <div class="donate-icon">
-                        <svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 32 32"><g fill="none" fill-rule="evenodd"><circle cx="16" cy="16" r="16" fill="#f7931a"/><path fill="#fff" fill-rule="nonzero" d="M23.189 14.02c.314-2.096-1.283-3.223-3.465-3.975l.708-2.84l-1.728-.43l-.69 2.765c-.454-.114-.92-.22-1.385-.326l.695-2.783L15.596 6l-.708 2.839q-.565-.127-1.104-.26l.002-.009l-2.384-.595l-.46 1.846s1.283.294 1.256.312c.7.175.826.638.805 1.006l-.806 3.235q.073.017.18.057l-.183-.045l-1.13 4.532c-.086.212-.303.531-.793.41c.018.025-1.256-.313-1.256-.313l-.858 1.978l2.25.561c.418.105.828.215 1.231.318l-.715 2.872l1.727.43l.708-2.84q.707.19 1.378.357l-.706 2.828l1.728.43l.715-2.866c2.948.558 5.164.333 6.097-2.333c.752-2.146-.037-3.385-1.588-4.192c1.13-.26 1.98-1.003 2.207-2.538m-3.95 5.538c-.533 2.147-4.148.986-5.32.695l.95-3.805c1.172.293 4.929.872 4.37 3.11m.535-5.569c-.487 1.953-3.495.96-4.47.717l.86-3.45c.975.243 4.118.696 3.61 2.733"/></g></svg>
-                    </div>
-                    <h2 class="donate-title">Bitcoin</h2>
-                </div>
-                <p class="donate-description">Support via BTC on the Bitcoin network</p>
-            </div>
-
-            <div class="donate-card disabled">
-                <div class="donate-header">
-                    <div class="donate-icon">
-                        <svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 24 24"><path fill="#f60" d="M12 3a8.99 8.99 0 0 1 8.543 11.813h-2.918V7.288l-5.633 5.869l-5.617-5.861v7.517H3.457A8.9 8.9 0 0 1 3 12.008C3 7.03 7.026 3 12 3m.025 12.822l3.912-3.914V16.5h3.749C18.022 19.246 15.254 21.002 12 21c-3.244 0-6.098-1.91-7.686-4.5h3.748v-4.592z"/></svg>
-                    </div>
-                    <h2 class="donate-title">Monero</h2>
-                </div>
-                <p class="donate-description">Coming soon...</p>
+        </details>
             </div>
         </div>
     </div>
@@ -301,7 +374,57 @@
         </div>
     </div>
 
+    <!-- Checkout Success Modal -->
+    <div id="successModal" class="modal">
+        <div class="modal-content">
+            <h2>Thank You for Your Support!</h2>
+            <p>Your API key will be sent to your email address. You can use it to bypass rate limits.</p>
+            <button class="copy-button" onclick="document.getElementById('successModal').style.display='none'">
+                Close
+            </button>
+        </div>
+    </div>
+
     <script>
+        // Check config endpoint to see if SellApp is available
+        async function checkConfig() {
+            try {
+                const response = await fetch('/v1/config');
+                const config = await response.json();
+                
+                // If rate limiting is disabled, hide the premium section entirely
+                if (!config.rate_limiting.enabled) {
+                    document.getElementById('premium-section').style.display = 'none';
+                    return;
+                }
+
+                // Show premium section since rate limiting is enabled
+                document.getElementById('premium-section').style.display = 'block';
+                
+                // Only show the SellApp form if we have the API key configured
+                // We can check this by seeing if the create-invoice endpoint works
+                try {
+                    const testResponse = await fetch('/api/create-invoice', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ test: true })
+                    });
+                    
+                    if (testResponse.ok) {
+                        document.getElementById('donation-form').style.display = 'block';
+                    }
+                } catch (err) {
+                    // If endpoint fails, only show direct donation options
+                    console.log('SellApp integration unavailable');
+                }
+            } catch (err) {
+                console.error('Failed to fetch config:', err);
+            }
+        }
+
+        // Check config on page load
+        document.addEventListener('DOMContentLoaded', checkConfig);
+
         const wallets = {
             eth: '0xA3AB1B884518bAa642C8abE8160f013fbcd80aD2',
             sol: 'GQpCYKyy7H1o3UUs6t25sj1xf5i7gbWUeBLBZSSc9WeH',
@@ -315,6 +438,147 @@
             btc: 'Bitcoin (BTC) Address',
             xmr: 'Monero (XMR) Address'
         };
+
+        // Replace placeholder with actual Cloudflare Turnstile site key
+        // Error handling
+        function showErrorModal() {
+            document.getElementById('errorModal').style.display = 'block';
+        }
+        
+        // Global error handler
+        window.addEventListener('error', function(event) {
+            console.error('Global error caught:', event.error);
+            showErrorModal();
+        });
+        
+        // Add error handling for turnstile
+        document.addEventListener('DOMContentLoaded', function() {
+            try {
+                const turnstileDiv = document.querySelector('.cf-turnstile');
+                if (turnstileDiv) {
+                    const turnstileKey = '0x4AAAAAA';
+                    turnstileDiv.setAttribute('data-sitekey', turnstileKey);
+                }
+                
+                // Check if Cloudflare Turnstile script failed to load
+                setTimeout(function() {
+                    if (!window.turnstile || !document.querySelector('.cf-turnstile iframe')) {
+                        console.error('Turnstile failed to initialize');
+                        // Don't immediately show error, wait for user to try to submit
+                    }
+                }, 3000);
+            } catch (error) {
+                console.error('Error setting up Turnstile:', error);
+            }
+        });
+
+        // Update amount preview
+        document.getElementById('donation-amount').addEventListener('input', function() {
+            const amount = parseFloat(this.value) || 0;
+            document.getElementById('amount-preview').textContent = '$' + amount.toFixed(2);
+        });
+
+        // Handle form submission with improved error handling
+        document.getElementById('donation-form').addEventListener('submit', async function(e) {
+            e.preventDefault();
+            
+            const submitButton = document.getElementById('submit-button');
+            submitButton.disabled = true;
+            submitButton.textContent = 'Processing...';
+            
+            try {
+                // Check if Turnstile is loaded
+                if (!window.turnstile || !document.querySelector('.cf-turnstile iframe')) {
+                    throw new Error('Security verification system is not available');
+                }
+                
+                // Get form values
+                const amount = document.getElementById('donation-amount').value;
+                const email = document.getElementById('email').value;
+                const paymentMethod = document.getElementById('payment-method').value;
+                const coupon = document.getElementById('coupon').value;
+                
+                // Get Turnstile token
+                const turnstileResponse = document.querySelector('[name="cf-turnstile-response"]')?.value;
+                
+                if (!turnstileResponse) {
+                    showNotification('Please complete the security check');
+                    submitButton.disabled = false;
+                    submitButton.textContent = 'Purchase API Key';
+                    return;
+                }
+                
+                // Create invoice
+                const invoiceResponse = await fetch('/api/create-invoice', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        amount: parseFloat(amount),
+                        email: email,
+                        paymentMethod: paymentMethod,
+                        coupon: coupon,
+                        turnstileToken: turnstileResponse
+                    })
+                });
+                
+                if (!invoiceResponse.ok) {
+                    throw new Error(`Server error: ${invoiceResponse.status} ${invoiceResponse.statusText}`);
+                }
+                
+                const invoiceData = await invoiceResponse.json();
+                
+                if (invoiceData.error) {
+                    throw new Error(invoiceData.error);
+                }
+                
+                // Create checkout session
+                const checkoutResponse = await fetch('/api/create-checkout', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        invoiceId: invoiceData.id
+                    })
+                });
+                
+                if (!checkoutResponse.ok) {
+                    throw new Error(`Server error: ${checkoutResponse.status} ${checkoutResponse.statusText}`);
+                }
+                
+                const checkoutData = await checkoutResponse.json();
+                
+                if (checkoutData.error) {
+                    throw new Error(checkoutData.error);
+                }
+                
+                // Redirect to checkout URL
+                window.location.href = checkoutData.checkoutUrl;
+                
+            } catch (error) {
+                console.error('Donation form error:', error);
+                showNotification('Error: ' + error.message);
+                submitButton.disabled = false;
+                submitButton.textContent = 'Purchase API Key';
+                
+                // If something serious happened, show the error modal
+                if (error.message.includes('Server error') ||
+                    error.message.includes('security verification') ||
+                    error.message.includes('Failed to fetch')) {
+                    showErrorModal();
+                }
+            }
+        });
+
+        // Check for success parameter in URL
+        window.addEventListener('load', function() {
+            const urlParams = new URLSearchParams(window.location.search);
+            if (urlParams.get('success') === 'true') {
+                document.getElementById('successModal').style.display = 'block';
+            }
+        });
 
         function showWallet(type) {
             if (type === 'xmr') return;

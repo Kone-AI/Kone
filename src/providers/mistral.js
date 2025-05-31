@@ -169,27 +169,25 @@ class MistralProvider {
       }
 
       try {
-        // format payload according to Mistral API specs
+        // Only include supported options
         const payload = {
           model: baseModel,
           messages: messages.map(msg => ({
             role: msg.role,
             content: msg.content
           })),
-          stream: Boolean(stream),
-          temperature: temperature || 0.7,
-          max_tokens: max_tokens || undefined,
-          ...otherOptions
+          stream: Boolean(stream)
         };
 
-        // ensure proper headers
-        const headers = {
-          'Content-Type': 'application/json',
-          'Accept': 'application/json',
-          'Authorization': `Bearer ${this.getActiveKey()}`
-        };
+        // Add optional parameters only if they are defined
+        if (temperature !== undefined) payload.temperature = temperature;
+        if (max_tokens !== undefined) payload.max_tokens = max_tokens;
+        // Add other supported options
+        if (otherOptions.top_p !== undefined) payload.top_p = otherOptions.top_p;
+        if (otherOptions.presence_penalty !== undefined) payload.presence_penalty = otherOptions.presence_penalty;
+        if (otherOptions.frequency_penalty !== undefined) payload.frequency_penalty = otherOptions.frequency_penalty;
 
-        const completion = await this.client.chat.completions.create(payload, { headers });
+        const completion = await this.client.chat.completions.create(payload);
 
         // handle 422 validation errors
         if (completion.error?.status === 422) {
@@ -219,12 +217,29 @@ class MistralProvider {
 
         this.handleKeyError(error);
 
-        // Try next key if rate limited
-        if (error.status === 429 && attempt < this.apiKeys.length - 1) {
+        // Try next key if rate limited or bad request
+        if ((error.status === 429 || error.status === 400) && attempt < this.apiKeys.length - 1) {
           if (process.env.DEBUG_MODE === 'true') {
-            console.log(`${this.constructor.name}: Retrying with backup key`);
+            console.log(`${this.constructor.name}: Retrying with backup key after ${error.status} error`);
           }
+          
+          // For 400 errors, check if it's a model not found (common issue with incorrect max tokens)
+          if (error.status === 400) {
+            // Try modifying the request for the next attempt
+            if (max_tokens !== undefined && max_tokens > 4000) {
+              max_tokens = 4000; // Limit max tokens to 4000 for retry
+            }
+          }
+          
           continue;
+        }
+
+        // Clean up error message for BadRequestError (400)
+        if (error.status === 400) {
+          const cleanError = new Error('Mistral API error: The request is invalid, likely due to incompatible parameters');
+          cleanError.status = 400;
+          cleanError.original = error;
+          throw cleanError;
         }
 
         throw error;

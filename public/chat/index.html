@@ -1,0 +1,91 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Chat - Sylph</title>
+    <link rel="stylesheet" href="/styles.css">
+    <link rel="stylesheet" href="/chat/chat.css">
+    <!-- highlight.js theme -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/styles/github-dark.min.css">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <script defer src="https://analytics.minoa.cat/script.js" data-website-id="dba618bd-576d-4166-a280-e38df64bf53f"></script>
+    <meta name="description" content="Chat with various AI language models via Sylph.">
+    <meta name="theme-color" content="#ffc0cb">
+</head>
+<body>
+    <div class="background-gradient"></div>
+    <div class="background-glow"></div>
+    <div class="chat-container">
+        <header class="chat-header">
+            <h1 class="site-header" onclick="location.href='/'">Sylph Chat</h1>
+            <div class="controls">
+                <select id="model-selector" class="chat-select">
+                    <option value="">Loading models...</option>
+                </select>
+                <button id="settings-button" class="chat-button">⚙️ Settings</button>
+                <button id="history-button" class="chat-button">📜 History</button>
+                <button onclick="location.reload()" class="chat-button">🔄 New Chat</button>
+            </div>
+        </header>
+
+        <div class="chat-main">
+            <aside id="history-panel" class="chat-sidebar hidden">
+                <h2>Chat History</h2>
+                <ul id="history-list">
+                    <!-- history items go here -->
+                </ul>
+                <button id="clear-history-button" class="chat-button danger">Clear History</button>
+            </aside>
+
+            <section class="chat-area">
+                <div id="message-list" class="message-list">
+                    <!-- messages will appear here -->
+                </div>
+                
+                <div id="search-status" class="search-status" style="display: none;">
+                    <span id="search-status-text">Searching...</span>
+                </div>
+
+                <footer class="chat-input-area">
+                    <textarea id="message-input"
+                        placeholder="Type your message here... (Shift+Enter for new line)"
+                        rows="1"></textarea>
+                    <button id="send-button" class="chat-button primary">Send</button>
+                </footer>
+            </section>
+
+            <aside id="settings-panel" class="chat-sidebar hidden">
+                <h2>Settings</h2>
+                <div class="setting">
+                    <label for="api-key">API Key (for bypassing rate limits):</label>
+                    <input type="password" id="api-key" class="chat-input" placeholder="Optional - Enter API key">
+                    <small>Donors receive API keys to bypass rate limits. <a href="https://sylph.sell.app/product/donate" target="_blank">Support Sylph</a></small>
+                </div>
+                
+                <div class="setting">
+                    <label for="temperature">Temperature:</label>
+                    <input type="range" id="temperature" min="0" max="2" step="0.1" value="0.7">
+                    <span id="temperature-value">0.7</span>
+                    <small>Higher values make responses more creative but less focused.</small>
+                </div>
+                
+                <div class="setting">
+                    <label>Theme</label>
+                    <div class="theme-buttons">
+                        <button class="theme-button active" data-theme="dark">Dark</button>
+                    </div>
+                    <small>Interface appearance</small>
+                </div>
+            </aside>
+        </div>
+    </div>
+
+
+    <!-- marked library for markdown -->
+    <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+    <!-- highlight.js for syntax highlighting -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/highlight.min.js"></script>
+    <!-- Core script -->
+    <script type="module" src="/chat/chat.js"></script>
+</body>
+</html>

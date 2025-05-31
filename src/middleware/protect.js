@@ -27,8 +27,19 @@ export function setHealthCheckRateLimit() {
     };
 }
 
+// Authentication mode
+const AUTH_MODES = {
+    NO_KEYS: 'no_keys',          // No API keys required for any request
+    KEYS_BYPASS_RATELIMITS: 'keys_bypass_ratelimits', // Keys allow bypassing rate limits
+    KEYS_REQUIRED: 'keys_required'      // Keys required for all requests (default)
+};
+
+// Default to KEYS_REQUIRED for backward compatibility
+const authMode = process.env.AUTH_MODE || AUTH_MODES.KEYS_REQUIRED;
+
 function loadApiKeys() {
-    if (!process.env.REQUIRE_API_KEY || process.env.REQUIRE_API_KEY === 'false') {
+    // Only load keys if we're using them
+    if (authMode === AUTH_MODES.NO_KEYS) {
         return new Set();
     }
 
@@ -65,56 +76,77 @@ export default function protectRoute(req, res, next) {
         now - time < currentRateLimit.windowMs
     );
     
-    // check if rate limited
-    if (rateData.requests.length >= currentRateLimit.maxRequests) {
-        return res.status(429).json({
-            error: {
-                message: 'Too many requests, please try again later',
-                type: 'rate_limit_error',
-                code: 'rate_limit_exceeded'
-            }
-        });
+    // Check for API key to determine if rate limits should be bypassed
+    const authHeader = req.headers.authorization;
+    const hasValidKey = authHeader && checkApiKey(authHeader);
+    
+    // If using keys for rate limit bypass and user has a valid key
+    const shouldBypassRateLimit = authMode === AUTH_MODES.KEYS_BYPASS_RATELIMITS && hasValidKey;
+    
+    // Apply rate limits unless we should bypass them
+    if (!shouldBypassRateLimit) {
+        if (rateData.requests.length >= currentRateLimit.maxRequests) {
+            return res.status(429).json({
+                error: {
+                    message: 'Too many requests, please try again later',
+                    type: 'rate_limit_error',
+                    code: 'rate_limit_exceeded'
+                }
+            });
+        }
+        
+        // add current request to count
+        rateData.requests.push(now);
     }
     
-    // add current request
-    rateData.requests.push(now);
-    
-    if (!process.env.REQUIRE_API_KEY || process.env.REQUIRE_API_KEY === 'false') {
+    // No keys required mode - proceed without auth check
+    if (authMode === AUTH_MODES.NO_KEYS) {
         return next();
     }
-
-    const authHeader = req.headers.authorization;
-    if (!authHeader) {
-        return res.status(401).json({
-            error: {
-                message: 'Missing API key',
-                type: 'auth_error',
-                code: 'missing_api_key'
-            }
-        });
+    
+    // In KEYS_BYPASS_RATELIMITS mode, we already checked the key validity above
+    if (authMode === AUTH_MODES.KEYS_BYPASS_RATELIMITS && hasValidKey) {
+        return next();
     }
+    
+    // Handle KEYS_REQUIRED mode
+    if (authMode === AUTH_MODES.KEYS_REQUIRED) {
+        // API key is required
+        if (!authHeader) {
+            return res.status(401).json({
+                error: {
+                    message: 'Missing API key',
+                    type: 'auth_error',
+                    code: 'missing_api_key'
+                }
+            });
+        }
 
+        // Key must be valid
+        if (!hasValidKey) {
+            return res.status(401).json({
+                error: {
+                    message: 'Invalid API key',
+                    type: 'auth_error',
+                    code: 'invalid_api_key'
+                }
+            });
+        }
+    }
+    
+    // For KEYS_BYPASS_RATELIMITS mode with invalid/missing key, we've already
+    // applied rate limiting above and we'll proceed with the request
+
+    next();
+}
+
+// Helper function to check API key validity
+function checkApiKey(authHeader) {
     const parts = authHeader.split(' ');
     if (parts.length !== 2 || parts[0].toLowerCase() !== 'bearer') {
-        return res.status(401).json({
-            error: {
-                message: 'Invalid authentication format. Use: Bearer YOUR_API_KEY',
-                type: 'auth_error',
-                code: 'invalid_auth_format'
-            }
-        });
+        return false;
     }
 
     const apiKey = parts[1];
-    if (!apiKeys.has(apiKey)) {
-        return res.status(401).json({
-            error: {
-                message: 'Invalid API key',
-                type: 'auth_error',
-                code: 'invalid_api_key'
-            }
-        });
-    }
-
-    next();
+    return apiKeys.has(apiKey);
 }
