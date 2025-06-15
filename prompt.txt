@@ -1,1 +1,0 @@
-add a pastel pink banner to every page at the top saying that sylph is in beta and needs contrabution wit teh contrabution text linking to the github repo
