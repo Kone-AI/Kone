@@ -495,9 +495,12 @@
 
             updateFilterOptions() {
                 // Update provider filter options
-                const providers = [...new Set(this.models.map(m => m.owned_by))].sort();
+                const providers = [...new Set(this.models.map(m => m.owned_by || 'Unknown Provider'))].sort();
                 this.providerFilter.innerHTML = '<option value="">All Providers</option>' +
-                    providers.map(p => `<option value="${p}">${p.replace(/^https?:\/\//, '')}</option>`).join('');
+                    providers.map(provider => {
+                        const displayName = provider.replace(/^https?:\/\//, '');
+                        return `<option value="${provider}">${displayName || 'Unknown Provider'}</option>`;
+                    }).join('');
             }
 
             async loadModels() {
@@ -552,7 +555,7 @@
                     this.content.innerHTML = `
                         <div class="error">
                             Failed to load models. Please try again later.
-                            ${process.env.DEBUG_MODE === 'true' ? `<br><small>${error.message}</small>` : ''}
+                            <br><small>${error.message}</small>
                         </div>
                     `;
                 }
@@ -601,10 +604,12 @@
                     let comparison = 0;
                     switch (sortField) {
                         case 'provider':
-                            comparison = a.owned_by.localeCompare(b.owned_by);
+                            const providerA = a.owned_by || 'Unknown Provider';
+                            const providerB = b.owned_by || 'Unknown Provider';
+                            comparison = providerA.localeCompare(providerB);
                             break;
                         case 'name':
-                            comparison = a.id.localeCompare(b.id);
+                            comparison = (a.id || '').localeCompare(b.id || '');
                             break;
                         case 'context':
                             comparison = (a.context_length || 0) - (b.context_length || 0);
@@ -614,14 +619,14 @@
                 });
 
                 // Group by provider
-                const modelsByProvider = new Map();
-                filteredModels.forEach(model => {
+                const modelsByProvider = filteredModels.reduce((map, model) => {
                     const provider = model.owned_by || 'Unknown Provider';
-                    if (!modelsByProvider.has(provider)) {
-                        modelsByProvider.set(provider, []);
+                    if (!map.has(provider)) {
+                        map.set(provider, []);
                     }
-                    modelsByProvider.get(provider).push(model);
-                });
+                    map.get(provider).push(model);
+                    return map;
+                }, new Map());
 
                 // Sort providers by model count
                 // Sort providers by model count (ascending) and then by name

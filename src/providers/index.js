@@ -6,16 +6,35 @@ const providers = [];
 
 // Helper to dynamically import enabled providers
 async function importProvider(name, path, noKeyRequired = false) {
-  if (process.env[`ENABLE_${name.toUpperCase()}`] !== 'false') {
-    try {
+  try {
+    // Only proceed if provider is enabled or not explicitly disabled
+    if (process.env[`ENABLE_${name.toUpperCase()}`] !== 'false') {
+      logger.debug(`Importing provider ${name} from ${path}`);
+      
+      // Import the module
       const module = await import(path);
-      providers.push({
+      
+      if (!module.default) {
+        throw new Error(`No default export found in ${path}`);
+      }
+
+      // Create provider config
+      const config = {
         instance: module.default,
         name: `${name}Provider`,
         envKey: noKeyRequired ? null : `${name.toUpperCase()}_API_KEY`
-      });
-    } catch (error) {
-      logger.error(`Failed to import ${name} provider:`, error);
+      };
+
+      // Add to providers array
+      providers.push(config);
+      logger.debug(`Successfully imported ${name} provider`);
+    } else {
+      logger.debug(`Provider ${name} is disabled via environment variable`);
+    }
+  } catch (error) {
+    logger.error(`Failed to import ${name} provider: ${error.message}`);
+    if (error.stack) {
+      logger.debug(`Stack trace for ${name} provider:`, error.stack);
     }
   }
 }
@@ -28,8 +47,9 @@ await importProvider('MENTION', './mention.js', true); // No API key needed
 await importProvider('GOOGLE', './google.js');
 await importProvider('GLAMA', './glama.js');
 await importProvider('GROQ', './groq.js');
-await importProvider('HUGGINGCHAT', './huggingchat.js', true); // Uses email/password
+// Import providers in specific order, with HackClub first
 await importProvider('HACKCLUB', './hackclub.js', true); // No API key needed
+await importProvider('HUGGINGCHAT', './huggingchat.js', true); // Uses email/password
 await importProvider('OPENAI', './openai.js');
 await importProvider('CLAUDE', './claude.js');
 await importProvider('DEEPSEEK', './deepseek.js');
@@ -73,7 +93,9 @@ class ProviderManager {
         
         if (isExplicitlyDisabled) {
           logger.debug(`Provider disabled by config:`, {
-            provider: config.name
+            provider: config.name,
+            flag: enableFlag,
+            value: process.env[enableFlag]
           });
           this.disabledProviders.add(config.name);
           continue;
@@ -81,12 +103,25 @@ class ProviderManager {
 
         // Check if provider has required configuration
         const hasConfig = !config.envKey || process.env[config.envKey];
-        if (hasConfig) {
+        const isExplicitlyEnabled = process.env[enableFlag] === 'true';
+        
+        if (hasConfig || isExplicitlyEnabled) {
           let instance = config.instance;
           
-          // If provider is a class (not an instance), instantiate it
-          if (typeof instance === 'function' || !instance.enabled) {
-            instance = new config.instance();
+          // If provider is already an instance (like HackClub)
+          if (instance.enabled !== undefined) {
+            logger.debug(`Provider ${config.name} is pre-initialized`);
+          } else if (typeof instance === 'function') {
+            instance = new instance();
+          }
+          
+          // Handle both class and instance providers
+          if (typeof instance === 'function') {
+            // If it's a class constructor
+            instance = new instance();
+          } else if (!instance.enabled) {
+            // If it's an instance but not enabled
+            instance = config.instance;
           }
 
           if (instance.enabled) {
@@ -260,14 +295,38 @@ class ProviderManager {
   async getAvailableModels() {
     const modelsByProvider = new Map();
     const errors = [];
+    let hasValidProvider = false;
 
     // Collect models from each provider and group by provider
     for (const provider of this.providers) {
-      if (!this.isProviderEnabled(provider) || !provider.enabled) continue;
+      const providerName = provider.constructor.name;
+      logger.debug(`[ProviderManager] Checking provider: ${providerName}`);
+      
+      if (!this.isProviderEnabled(provider)) {
+        logger.debug(`[ProviderManager] Provider ${providerName} is not enabled`);
+        continue;
+      }
+      if (!provider.enabled) {
+        logger.debug(`[ProviderManager] Provider ${providerName} reports itself as not enabled`);
+        continue;
+      }
+      
       try {
+        logger.debug(`[ProviderManager] Getting models from ${providerName}`);
         this.checkRateLimit(provider, 'models');
         const providerModels = await provider.getModels();
-        modelsByProvider.set(provider.constructor.name, providerModels);
+        logger.debug(`[ProviderManager] Got models from ${providerName}:`, providerModels);
+        
+        // Ensure we have valid models before adding
+        if (Array.isArray(providerModels)) {
+          modelsByProvider.set(providerName, providerModels);
+          if (providerModels.length > 0) {
+            hasValidProvider = true;
+          }
+        } else {
+          logger.warn(`[ProviderManager] Invalid models returned from ${providerName} - expected array`);
+        }
+        
         this.updateRateLimit(provider);
       } catch (error) {
         logger.error(`Failed to get models from provider:`, {
@@ -300,12 +359,15 @@ class ProviderManager {
       acc.push(...providerModels);
       return acc;
     }, []);
+
+    // Return empty array instead of throwing error
     if (models.length === 0) {
-      const message = errors.length > 0 ?
-        'Failed to get models from any provider: ' + errors.map(e => `${e.provider} (${e.error})`).join(', ') :
-        'No enabled providers available';
-      throw new Error(message);
+      logger.warn('No models available from any provider', {
+        errors: errors.length > 0 ? errors : 'No enabled providers',
+        providers: this.providers.map(p => p.constructor.name)
+      });
     }
+    
     return models;
   }
 

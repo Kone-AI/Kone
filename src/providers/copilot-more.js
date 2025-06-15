@@ -4,18 +4,26 @@ import BaseProvider from './base.js';
 
 class CopilotMoreProvider extends BaseProvider {
   constructor() {
-    super({
+    const config = {
       name: 'CopilotMoreProvider',
       baseURL: process.env.COPILOT_MORE_API_URL,
-      apiKeyRequired: false,
+      apiKeyRequired: true,
       supportsStreaming: true
-    });
-    
-    // setup client with openai sdk
-    this.client = this.enabled ? new OpenAI({
-      apiKey: 'anything', // accepts any value
-      baseURL: this.baseURL
-    }) : null;
+    };
+    super(config);
+
+    // Get API key from environment
+    this.apiKey = process.env.COPILOT_MORE_API_KEY;
+    this.enabled = Boolean(this.apiKey);
+
+    if (this.enabled) {
+      this.client = new OpenAI({
+        apiKey: this.apiKey,
+        baseURL: this.baseURL
+      });
+    } else {
+      console.warn('Copilot More provider disabled: No API key provided');
+    }
 
     this.disabledModels = new Set();
     this.lastUpdate = 0;
