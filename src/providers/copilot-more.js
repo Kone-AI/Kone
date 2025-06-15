@@ -4,25 +4,35 @@ import BaseProvider from './base.js';
 
 class CopilotMoreProvider extends BaseProvider {
   constructor() {
-    const config = {
-      name: 'CopilotMoreProvider',
-      baseURL: process.env.COPILOT_MORE_API_URL,
-      apiKeyRequired: true,
-      supportsStreaming: true
-    };
-    super(config);
+    const baseURL = process.env.COPILOT_MORE_API_URL || 'https://cpm.minoa.cat';
+    const defaultModels = [{
+      id: 'copilot-more/gpt-4',
+      name: 'GPT-4',
+      contextLength: 128000,
+      pricing: { prompt: 0, completion: 0 }
+    }];
 
-    // Get API key from environment
+    super({
+      name: 'CopilotMoreProvider',
+      baseURL,
+      apiKeyRequired: true,
+      supportsStreaming: true,
+      models: defaultModels
+    });
+
+    this.models = new Map(defaultModels.map(m => [m.id, m]));
     this.apiKey = process.env.COPILOT_MORE_API_KEY;
     this.enabled = Boolean(this.apiKey);
 
     if (this.enabled) {
       this.client = new OpenAI({
         apiKey: this.apiKey,
-        baseURL: this.baseURL
+        baseURL,
+        defaultHeaders: { 'accept-encoding': 'gzip' }
       });
+      console.log(`[CopilotMore] Initialized with baseURL: ${baseURL}`);
     } else {
-      console.warn('Copilot More provider disabled: No API key provided');
+      console.warn('[CopilotMore] No API key provided, provider will be disabled');
     }
 
     this.disabledModels = new Set();
@@ -124,29 +134,24 @@ class CopilotMoreProvider extends BaseProvider {
       const response = await this.client.models.list();
       const models = response.data || [];
 
-      this.models.clear();
-      for (const model of models) {
-        const formattedId = this.formatModelName(model.id);
-        // only add models that pass validation
-        if (!this.disabledModels.has(formattedId) && await this.validateModel(model.id)) {
-          this.models.set(formattedId, {
-            id: formattedId,
-            object: 'model',
-            created: Date.now(),
-            owned_by: 'Copilot',
-            permission: [],
-            root: model.id,
-            parent: null,
-            context_length: model.context_window || 200000, // default if not specified
-            capabilities: {
-              text: true,
-              images: false,
-              audio: false,
-              video: false
-            }
-          });
+      const availableModels = models.map(model => ({
+        id: this.formatModelName(model.id),
+        object: 'model',
+        created: Date.now(),
+        owned_by: 'copilot-more',
+        permission: [],
+        root: model.id,
+        parent: null,
+        context_length: model.context_window || 128000,
+        capabilities: {
+          text: true,
+          images: false,
+          audio: false,
+          video: false
         }
-      }
+      }));
+
+      this.models = new Map(availableModels.map(m => [m.id, m]));
     } catch (error) {
       console.error('failed to fetch copilot-more models:', error);
       return Array.from(this.models.keys());

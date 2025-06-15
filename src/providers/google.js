@@ -6,32 +6,36 @@ class GoogleProvider extends BaseProvider {
     #keyRotationDelay = 60000; // 1 minute cooldown
 
     constructor() {
+        const defaultModels = [
+            {
+                id: 'models/gemini-1.5-pro-latest',
+                name: 'Gemini 1.5 Pro Latest',
+                contextLength: 2000000,
+                pricing: { prompt: 0.0005, completion: 0.0005 }
+            },
+            {
+                id: 'models/gemini-1.5-pro-001',
+                name: 'Gemini 1.5 Pro 001',
+                contextLength: 2000000,
+                pricing: { prompt: 0.0005, completion: 0.0005 }
+            },
+            {
+                id: 'models/gemini-pro-vision',
+                name: 'Gemini Pro Vision',
+                contextLength: 12288,
+                pricing: { prompt: 0.001, completion: 0.001 }
+            }
+        ];
+
         super({
             name: 'GoogleProvider',
             baseURL: 'https://generativelanguage.googleapis.com/v1beta/openai',
             apiKeyRequired: true,
             supportsStreaming: true,
-            models: [
-                {
-                    id: 'models/gemini-1.5-pro-latest',
-                    name: 'Gemini 1.5 Pro Latest',
-                    contextLength: 2000000,
-                    pricing: { prompt: 0.0005, completion: 0.0005 }
-                },
-                {
-                    id: 'models/gemini-1.5-pro-001',
-                    name: 'Gemini 1.5 Pro 001',
-                    contextLength: 2000000,
-                    pricing: { prompt: 0.0005, completion: 0.0005 }
-                },
-                {
-                    id: 'models/gemini-pro-vision', 
-                    name: 'Gemini Pro Vision',
-                    contextLength: 12288,
-                    pricing: { prompt: 0.001, completion: 0.001 }
-                }
-            ]
+            models: defaultModels
         });
+
+        this.models = new Map(defaultModels.map(m => [m.id, m]));
         
         // load configuration
         this.enabled = process.env.ENABLE_GOOGLE !== 'false';
@@ -80,8 +84,6 @@ class GoogleProvider extends BaseProvider {
         if (now - this.lastUpdate < this.updateInterval && this.models.size > 0) {
             return Array.from(this.models.keys());
         }
-
-        this.models.clear();
         try {
             // get models from the api
             const apiKey = this.getApiKey();
