@@ -149,7 +149,7 @@ class HealthCheck {
             }], {
                 operation: 'health',
                 headers: {
-                    'User-Agent': 'SylphHealthCheck/1.0'
+                    'User-Agent': 'KoneHealthCheck/1.0'
                 },
                 model,
                 temperature: 0.3,

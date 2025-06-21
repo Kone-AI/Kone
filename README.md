@@ -1,4 +1,4 @@
-# Sylph API
+# Kone API
 
 Free API access to AI language models for students and developers in developing countries. Seamlessly integrate with multiple LLMs through a unified, OpenAI-compatible interface.
 
@@ -17,8 +17,8 @@ A hosted version is available at [ai.minoa.cat](https://ai.minoa.cat)
 
 1. Clone the repository:
 ```bash
-git clone https://github.com/m1noa/Sylph
-cd Sylph
+git clone https://github.com/m1noa/Kone
+cd Kone
 ```
 
 2. Install dependencies:
@@ -73,7 +73,7 @@ Please ensure your code follows the existing style and includes appropriate test
 
 ## Support
 
-If you find Sylph helpful, consider:
+If you find Kone helpful, consider:
 - Supporting the project at [ai.minoa.cat/donate](https://ai.minoa.cat/donate)
 - Sharing with others who might benefit
 - Contributing code improvements
