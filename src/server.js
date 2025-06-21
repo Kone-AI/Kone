@@ -5,7 +5,7 @@ import rateLimit from 'express-rate-limit';
 import morgan from 'morgan';
 import path from 'path';
 import { fileURLToPath } from 'url';
-import 'dotenv/config';
+import dotenv from 'dotenv';
 import wiki from 'wikipedia';
 import { search, OrganicResult, ResultTypes } from 'google-sr';
 import { JSDOM } from 'jsdom';
@@ -1234,6 +1234,22 @@ app.use((err, req, res, next) => {
 // Start server
 async function startServer() {
     try {
+        // Load environment variables and check for .env file
+        const envConfig = dotenv.config();
+        if (envConfig.error) {
+            if (envConfig.error.code === 'ENOENT') {
+                logger.error('CRITICAL: .env file not found. This file is required for server configuration.');
+                logger.error('Please create a .env file based on .env.example and populate it with necessary values.');
+            } else {
+                logger.error('CRITICAL: Failed to load .env file.', envConfig.error);
+            }
+            logger.error('Server startup aborted due to missing or unreadable .env file.');
+            process.exit(1);
+        }
+        logger.info('.env file loaded successfully.');
+
+        // Just validate .env file exists - let providers handle their own initialization
+
         logger.startup('Server');
 
         // Start HTTP server
@@ -1246,6 +1262,9 @@ async function startServer() {
             logger.warn('Server started in maintenance mode', {
                 message: process.env.MAINTENANCE_MESSAGE || 'Service is temporarily under maintenance.'
             });
+            // Note: If .env is missing, we'd exit before this.
+            // If .env is present but MAINTENANCE_MODE is true, we might still want to exit or not fully start.
+            // For now, keeping original behavior: return if in maintenance.
             return;
         }
 

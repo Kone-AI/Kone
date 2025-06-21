@@ -103,6 +103,7 @@ class ProviderManager {
 
         // Check if provider has required configuration
         const hasConfig = !config.envKey || process.env[config.envKey];
+<<<<<<< Updated upstream
         const isExplicitlyEnabled = process.env[enableFlag] === 'true';
         
         if (hasConfig || isExplicitlyEnabled) {
@@ -122,6 +123,50 @@ class ProviderManager {
           } else if (!instance.enabled) {
             // If it's an instance but not enabled
             instance = config.instance;
+=======
+        if (hasConfig) {
+          // Get the instance, whether it's a class or already instantiated
+          // The provider module can export:
+          // 1. An instance (has 'enabled' property) - most common case
+          // 2. A class (needs to be instantiated)
+          // 3. A factory function (needs to be called)
+          const exportedValue = config.instance;
+          let instance;
+          
+          // Check if it's already an instance
+          if (exportedValue && typeof exportedValue === 'object' && exportedValue.enabled !== undefined) {
+            instance = exportedValue;
+            logger.debug(`Using pre-instantiated provider ${config.name}`);
+          }
+          // Check if it's a class or factory function
+          else if (typeof exportedValue === 'function') {
+            // Check if it's a class by looking for class syntax or prototype chain
+            const isClass = /^\s*class\s+/.test(exportedValue.toString()) ||
+                          (exportedValue.prototype && exportedValue.prototype.constructor === exportedValue);
+            
+            try {
+              if (isClass) {
+                instance = new exportedValue();
+                logger.debug(`Instantiated class for provider ${config.name}`);
+              } else {
+                instance = exportedValue();
+                logger.debug(`Called factory function for provider ${config.name}`);
+              }
+            } catch (error) {
+              const errorType = isClass ? 'class instantiation' : 'factory function';
+              logger.error(`Failed ${errorType} for provider ${config.name}:`, error);
+              throw error;
+            }
+          }
+          // Invalid export
+          else {
+            logger.error(`Invalid export for provider ${config.name}:`, {
+              type: typeof exportedValue,
+              hasEnabled: exportedValue?.enabled !== undefined,
+              exportedValue: exportedValue
+            });
+            throw new Error(`Invalid provider export for ${config.name} (expected instance, class, or factory function)`);
+>>>>>>> Stashed changes
           }
 
           if (instance.enabled) {
