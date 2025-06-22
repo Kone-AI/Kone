@@ -12,21 +12,6 @@ const defaultRateLimit = {
 
 let currentRateLimit = { ...defaultRateLimit };
 
-// health check rate limit wrapper
-export function setHealthCheckRateLimit() {
-    // store previous settings
-    const previousSettings = { ...currentRateLimit };
-    
-    // set health check specific limits
-    currentRateLimit.windowMs = process.env.HEALTH_CHECK_DELAY || 60000; // 1 minute default
-    currentRateLimit.maxRequests = 5;
-    
-    return () => {
-        // restore original settings
-        currentRateLimit = previousSettings;
-    };
-}
-
 // Authentication mode
 const AUTH_MODES = {
     NO_KEYS: 'no_keys',          // No API keys required for any request

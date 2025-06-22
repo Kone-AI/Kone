@@ -1,7 +1,7 @@
 # todo 🫩
-- [ ] remove health check
+- [x] remove health check
 - [ ] finish chat
-- [ ] remove useless provider options
+- [x] remove useless provider options
 - [ ] make the models not start with their provider and make make their only be one of each model
 - [ ] make the model list be completely manuel and not be automatic
 - [ ] move from api focused to chat focused with a login needed to use (minus a simple demo using a cheap model with hard limits per ip and browser cookies)

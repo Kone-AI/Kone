@@ -1,0 +1,217 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>API Documentation - Kone AI</title>
+    <link rel="stylesheet" href="/styles.css">
+    <style>
+        .api-container {
+            max-width: 1200px;
+            margin: 2rem auto;
+            padding: 0 1rem;
+        }
+
+        .api-section {
+            margin: 2rem 0;
+            padding: 2rem;
+            background: var(--background-secondary);
+            border-radius: 10px;
+        }
+
+        .endpoint {
+            margin: 2rem 0;
+        }
+
+        .endpoint-title {
+            display: flex;
+            align-items: center;
+            gap: 1rem;
+            margin-bottom: 1rem;
+        }
+
+        .http-method {
+            padding: 0.3rem 0.8rem;
+            border-radius: 5px;
+            font-weight: bold;
+            font-size: 0.9rem;
+        }
+
+        .method-post {
+            background: #49cc90;
+            color: white;
+        }
+
+        .endpoint-url {
+            font-family: monospace;
+            padding: 0.3rem 0.8rem;
+            background: var(--background-primary);
+            border-radius: 5px;
+        }
+
+        .code-block {
+            background: var(--background-primary);
+            padding: 1rem;
+            border-radius: 5px;
+            overflow-x: auto;
+            font-family: monospace;
+            margin: 1rem 0;
+        }
+
+        .parameter-table {
+            width: 100%;
+            border-collapse: collapse;
+            margin: 1rem 0;
+        }
+
+        .parameter-table th,
+        .parameter-table td {
+            padding: 0.8rem;
+            text-align: left;
+            border-bottom: 1px solid var(--border-color);
+        }
+
+        .parameter-table th {
+            background: var(--background-primary);
+        }
+
+        .required {
+            color: #f93e3e;
+            margin-left: 0.3rem;
+        }
+
+        .response-example {
+            margin-top: 1rem;
+        }
+
+        .authentication-notice {
+            background: #ffd700;
+            color: black;
+            padding: 1rem;
+            border-radius: 5px;
+            margin: 1rem 0;
+        }
+    </style>
+</head>
+<body>
+    <header class="header">
+        <div class="header-content">
+            <div class="header-title-section">
+                <h1 class="site-title" onclick="window.location.href='/';" style="cursor: pointer;">Kone</h1>
+                <p class="site-subtitle">(unofficial)</p>
+            </div>
+            <nav class="header-nav">
+                <a href="/" class="nav-link" id="nav-main">Chat</a>
+                <a href="/pricing" class="nav-link" id="nav-files">Pricing</a>
+                <a href="/api" class="nav-link active" id="nav-api">API Docs</a>
+            </nav>
+        </div>
+    </header>
+
+    <main class="api-container">
+        <h1>API Documentation</h1>
+        
+        <div class="api-section">
+            <h2>Authentication</h2>
+            <p>All API requests require an API key to be included in the request headers:</p>
+            <div class="code-block">
+                x-api-key: your_api_key_here
+            </div>
+            <div class="authentication-notice">
+                <strong>Note:</strong> API access is only available with the Pro plan subscription.
+            </div>
+        </div>
+
+        <div class="api-section">
+            <h2>Chat Completion</h2>
+            <div class="endpoint">
+                <div class="endpoint-title">
+                    <span class="http-method method-post">POST</span>
+                    <span class="endpoint-url">/v1/chat/completions</span>
+                </div>
+                <p>Create a chat completion with the specified model.</p>
+                
+                <h3>Request Parameters</h3>
+                <table class="parameter-table">
+                    <thead>
+                        <tr>
+                            <th>Parameter</th>
+                            <th>Type</th>
+                            <th>Description</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr>
+                            <td>model<span class="required">*</span></td>
+                            <td>string</td>
+                            <td>The model to use for completion</td>
+                        </tr>
+                        <tr>
+                            <td>messages<span class="required">*</span></td>
+                            <td>array</td>
+                            <td>Array of message objects with role and content</td>
+                        </tr>
+                        <tr>
+                            <td>temperature</td>
+                            <td>number</td>
+                            <td>Sampling temperature (0-2, default: 1)</td>
+                        </tr>
+                        <tr>
+                            <td>max_tokens</td>
+                            <td>integer</td>
+                            <td>Maximum tokens to generate</td>
+                        </tr>
+                    </tbody>
+                </table>
+
+                <h3>Example Request</h3>
+                <div class="code-block">
+{
+    "model": "gpt-4",
+    "messages": [
+        {"role": "system", "content": "You are a helpful assistant."},
+        {"role": "user", "content": "Hello!"}
+    ],
+    "temperature": 0.7
+}
+                </div>
+
+                <h3>Example Response</h3>
+                <div class="code-block">
+{
+    "id": "chatcmpl-123",
+    "object": "chat.completion",
+    "created": 1677858242,
+    "model": "gpt-4",
+    "usage": {
+        "prompt_tokens": 13,
+        "completion_tokens": 7,
+        "total_tokens": 20
+    },
+    "choices": [
+        {
+            "message": {
+                "role": "assistant",
+                "content": "Hello! How can I help you today?"
+            },
+            "finish_reason": "stop",
+            "index": 0
+        }
+    ]
+}
+                </div>
+            </div>
+        </div>
+
+        <div class="api-section">
+            <h2>Rate Limits</h2>
+            <p>The API has the following rate limits:</p>
+            <ul>
+                <li>Basic Plan: Not available</li>
+                <li>Pro Plan: 100 requests per minute</li>
+            </ul>
+            <p>Rate limits are applied per API key. Exceeding the rate limit will result in a 429 Too Many Requests response.</p>
+        </div>
+    </main>
+</body>
+</html>

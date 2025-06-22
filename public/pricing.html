@@ -1,0 +1,141 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Pricing - Kone AI</title>
+    <link rel="stylesheet" href="/styles.css">
+    <style>
+        .pricing-container {
+            max-width: 1200px;
+            margin: 2rem auto;
+            padding: 0 1rem;
+        }
+
+        .pricing-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 2rem;
+            margin-top: 2rem;
+        }
+
+        .pricing-card {
+            background: var(--background-secondary);
+            border-radius: 10px;
+            padding: 2rem;
+            text-align: center;
+            transition: transform 0.3s ease;
+        }
+
+        .pricing-card:hover {
+            transform: translateY(-5px);
+        }
+
+        .plan-name {
+            font-size: 1.5rem;
+            font-weight: bold;
+            margin-bottom: 1rem;
+            color: var(--text-primary);
+        }
+
+        .plan-price {
+            font-size: 2.5rem;
+            font-weight: bold;
+            margin-bottom: 1rem;
+            color: var(--accent-color);
+        }
+
+        .plan-price span {
+            font-size: 1rem;
+            color: var(--text-secondary);
+        }
+
+        .plan-features {
+            list-style: none;
+            padding: 0;
+            margin: 2rem 0;
+        }
+
+        .plan-features li {
+            margin: 0.5rem 0;
+            color: var(--text-secondary);
+        }
+
+        .plan-button {
+            background: var(--accent-color);
+            color: white;
+            border: none;
+            padding: 1rem 2rem;
+            border-radius: 5px;
+            font-size: 1rem;
+            cursor: not-allowed;
+            opacity: 0.7;
+            transition: opacity 0.3s ease;
+        }
+
+        .plan-button:hover {
+            opacity: 0.8;
+        }
+
+        .coming-soon {
+            font-style: italic;
+            color: var(--text-secondary);
+            margin-top: 0.5rem;
+        }
+    </style>
+</head>
+<body>
+    <header class="header">
+        <div class="header-content">
+            <div class="header-title-section">
+                <h1 class="site-title" onclick="window.location.href='/';" style="cursor: pointer;">Kone</h1>
+                <p class="site-subtitle">(unofficial)</p>
+            </div>
+            <nav class="header-nav">
+                <a href="/" class="nav-link" id="nav-main">Chat</a>
+                <a href="/pricing" class="nav-link active" id="nav-files">Pricing</a>
+                <a href="/api" class="nav-link" id="nav-api">API Docs</a>
+            </nav>
+        </div>
+    </header>
+
+    <main class="pricing-container">
+        <h1>Choose Your Plan</h1>
+        <div class="pricing-grid">
+            <div class="pricing-card">
+                <div class="plan-name">Basic Plan</div>
+                <div class="plan-price">$5<span>/month</span></div>
+                <ul class="plan-features">
+                    <li>✓ Access to all chat models</li>
+                    <li>✓ Unlimited messages</li>
+                    <li>✓ Priority support</li>
+                    <li>✓ No ads</li>
+                    <li>✓ Custom system prompts</li>
+                    <li>✗ API access</li>
+                </ul>
+                <button class="plan-button">Coming Soon</button>
+                <p class="coming-soon">Available soon!</p>
+            </div>
+
+            <div class="pricing-card">
+                <div class="plan-name">Pro Plan</div>
+                <div class="plan-price">$8<span>/month</span></div>
+                <ul class="plan-features">
+                    <li>✓ Everything in Basic plan</li>
+                    <li>✓ Full API access</li>
+                    <li>✓ Higher rate limits</li>
+                    <li>✓ Multiple API keys</li>
+                    <li>✓ Usage analytics</li>
+                    <li>✓ Premium support</li>
+                </ul>
+                <button class="plan-button">Coming Soon</button>
+                <p class="coming-soon">Available soon!</p>
+            </div>
+        </div>
+    </main>
+
+    <script>
+        // Add any interactive features here
+    </script>
+</body>
+</html>

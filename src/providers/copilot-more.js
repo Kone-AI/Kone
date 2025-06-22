@@ -4,7 +4,7 @@ import BaseProvider from './base.js';
 
 class CopilotMoreProvider extends BaseProvider {
   constructor() {
-    const baseURL = process.env.COPILOT_MORE_API_URL || 'https://cpm.minoa.cat';
+    const baseURL = process.env.COPILOT_MORE_API_URL;
     const defaultModels = [{
       id: 'copilot-more/gpt-4',
       name: 'GPT-4',
@@ -40,7 +40,6 @@ class CopilotMoreProvider extends BaseProvider {
     this.updateInterval = 5 * 60 * 1000; // 5 minutes
     this.retryAttempts = 3;
     this.retryDelay = 1000; // 1 second
-    this.healthCheckTimeout = 10000; // 10 second timeout for health checks
   }
 
   async sleep(ms) {
@@ -95,17 +94,12 @@ class CopilotMoreProvider extends BaseProvider {
     }
 
     try {
-      // do a quick health check with timeout
-      const controller = new AbortController();
-      const timeout = setTimeout(() => controller.abort(), this.healthCheckTimeout);
-
       const response = await this.client.chat.completions.create({
         model: this.getBaseModelName(model),
         messages: [{ role: 'user', content: 'test' }],
         max_tokens: 1
-      }, { signal: controller.signal });
+      });
 
-      clearTimeout(timeout);
       return Boolean(response);
     } catch (error) {
       // specifically handle unsupported model errors
@@ -200,144 +194,67 @@ class CopilotMoreProvider extends BaseProvider {
       throw new Error('copilot-more provider not enabled');
     }
 
-    // validate input
-    if (!Array.isArray(messages) || messages.length === 0) {
-      throw new Error('messages must be a non-empty array');
+    // validate messages
+    if (!Array.isArray(messages)) {
+      throw new Error('messages must be an array');
     }
 
     messages.forEach(msg => this.validateMessage(msg));
 
-    const { model, stream, temperature, max_tokens } = options;
-    if (!model) {
-      throw new Error('model is required');
-    }
+    // get model name without our prefix
+    const baseModelName = this.getBaseModelName(options.model);
 
-    // validate model is still supported
-    if (!await this.validateModel(model)) {
-      throw new Error('model not supported or disabled');
-    }
+    // prepare request parameters
+    const params = {
+      model: baseModelName,
+      messages,
+      stream: options.stream || false,
+      max_tokens: options.max_tokens,
+      temperature: options.temperature,
+      top_p: options.top_p,
+      presence_penalty: options.presence_penalty,
+      frequency_penalty: options.frequency_penalty,
+      stop: options.stop
+    };
 
-    const baseModel = this.getBaseModelName(model);
-
-    // validate temperature
-    if (temperature !== undefined && (typeof temperature !== 'number' || temperature < 0 || temperature > 2)) {
-      throw new Error('temperature must be between 0 and 2');
-    }
-
-    // validate max_tokens 
-    if (max_tokens !== undefined && (typeof max_tokens !== 'number' || max_tokens < 1)) {
-      throw new Error('max_tokens must be a positive number');
-    }
+    // remove undefined values
+    Object.keys(params).forEach(key => {
+      if (params[key] === undefined) {
+        delete params[key];
+      }
+    });
 
     let attempt = 0;
     let lastError = null;
 
     while (attempt < this.retryAttempts) {
       try {
-        // Create completion with the OpenAI SDK
-        const completion = await this.client.chat.completions.create({
-          model: baseModel, // use base model name without prefix
-          messages: messages.map(msg => ({
-            role: msg.role,
-            content: msg.content
-          })),
-          stream,
-          temperature,
-          max_tokens,
-          ...options
-        });
-
-        // Handle streaming responses
-        if (stream) {
-          return this._handleStream(completion, model);
-        }
-
-        // Return regular response
-        return this.transformResponse(completion, model);
+        const response = await this.client.chat.completions.create(params);
+        return this.transformResponse(response, options.model);
       } catch (error) {
         lastError = error;
-        attempt++;
 
-        // Handle different error types
-        if (error.status === 401 || error.status === 403) {
-          throw new Error('api authorization failed');
-        }
-
-        if (error.status === 402) {
-          this.disableModel(model);
-          throw new Error('model quota exceeded');
-        }
-
+        // if model not supported, fail fast
         if (error.status === 400 && error.message?.includes('not supported')) {
-          this.disableModel(model);
-          throw new Error('model not supported');
+          this.disableModel(options.model);
+          throw error;
         }
 
+        // if rate limited, wait before retry
         if (error.status === 429) {
-          if (attempt < this.retryAttempts) {
-            const delay = this.retryDelay * Math.pow(2, attempt - 1); // exponential backoff
-            await this.sleep(delay);
-            continue;
-          }
-          throw new Error('rate limit exceeded');
+          await this.sleep(this.retryDelay * Math.pow(2, attempt));
+          attempt++;
+          continue;
         }
 
-        if (error.status >= 500) {
-          if (attempt < this.retryAttempts) {
-            await this.sleep(this.retryDelay);
-            continue;
-          }
-        }
-
-        // if we've hit max retries, throw the last error
-        if (attempt >= this.retryAttempts) {
-          throw lastError;
-        }
+        // for other errors, throw immediately
+        throw error;
       }
     }
 
-    throw new Error('max retry attempts exceeded');
-  }
-
-  async *_handleStream(stream, model) {
-    try {
-      for await (const chunk of stream) {
-        if (!chunk || !chunk.choices?.[0]?.delta) {
-          continue; // skip invalid chunks
-        }
-
-        // Transform chunks to include our model name
-        if (chunk.model) {
-          chunk.model = this.formatModelName(model);
-        }
-        yield chunk;
-      }
-    } catch (error) {
-      if (error.status === 401 || error.status === 403) {
-        throw new Error('api authorization failed');  
-      }
-      if (error.status === 402) {
-        this.disableModel(model);
-        throw new Error('model quota exceeded');
-      }
-      if (error.status === 429) {
-        throw new Error('rate limit exceeded');
-      }
-      if (error.status === 400 && error.message?.includes('not supported')) {
-        this.disableModel(model);
-        throw new Error('model not supported');
-      }
-      throw error;
-    }
-  }
-
-  async getModels() {
-    // if provider is not enabled, return empty list
-    if (!this.enabled) return [];
-    
-    await this.updateAvailableModels();
-    return Array.from(this.models.values());
+    // if we get here, we've exhausted our retries
+    throw lastError;
   }
 }
 
-export default new CopilotMoreProvider();
+export default CopilotMoreProvider;

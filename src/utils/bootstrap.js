@@ -122,88 +122,11 @@ function validateEnvironment() {
           'GROQ'
         )
       },
-      glama: {
-        enabled: process.env.ENABLE_GLAMA !== 'false',
-        apiKeys: validateApiKeySet(
-          process.env.GLAMA_API_KEY,
-          process.env.GLAMA_BACKUP_KEY_1,
-          process.env.GLAMA_BACKUP_KEY_2,
-          'GLAMA'
-        )
-      },
-      huggingchat: {
-        enabled: process.env.ENABLE_HUGGINGCHAT !== 'false',
-        email: process.env.HUGGINGFACE_EMAIL?.trim(),
-        password: process.env.HUGGINGFACE_PASSWORD?.trim()
-      },
       hackclub: {
         enabled: process.env.ENABLE_HACKCLUB !== 'false'
       },
       voids: {
         enabled: process.env.ENABLE_VOIDS !== 'false'
-      },
-      openai: {
-        enabled: process.env.ENABLE_OPENAI !== 'false',
-        apiKeys: validateApiKeySet(
-          process.env.OPENAI_API_KEY,
-          process.env.OPENAI_BACKUP_KEY_1,
-          process.env.OPENAI_BACKUP_KEY_2,
-          'OPENAI'
-        )
-      },
-      claude: {
-        enabled: process.env.ENABLE_CLAUDE !== 'false',
-        apiKeys: validateApiKeySet(
-          process.env.ANTHROPIC_API_KEY,
-          process.env.ANTHROPIC_BACKUP_KEY_1,
-          process.env.ANTHROPIC_BACKUP_KEY_2,
-          'ANTHROPIC'
-        )
-      },
-      deepseek: {
-        enabled: process.env.ENABLE_DEEPSEEK !== 'false',
-        apiKeys: validateApiKeySet(
-          process.env.DEEPSEEK_API_KEY,
-          process.env.DEEPSEEK_BACKUP_KEY_1,
-          process.env.DEEPSEEK_BACKUP_KEY_2,
-          'DEEPSEEK'
-        )
-      },
-      together: {
-        enabled: process.env.ENABLE_TOGETHER !== 'false',
-        apiKeys: validateApiKeySet(
-          process.env.TOGETHER_API_KEY,
-          process.env.TOGETHER_BACKUP_KEY_1,
-          process.env.TOGETHER_BACKUP_KEY_2,
-          'TOGETHER'
-        )
-      },
-      perplexity: {
-        enabled: process.env.ENABLE_PERPLEXITY !== 'false',
-        apiKeys: validateApiKeySet(
-          process.env.PERPLEXITY_API_KEY,
-          process.env.PERPLEXITY_BACKUP_KEY_1,
-          process.env.PERPLEXITY_BACKUP_KEY_2,
-          'PERPLEXITY'
-        )
-      },
-      cerebras: {
-        enabled: process.env.ENABLE_CEREBRAS !== 'false',
-        apiKeys: validateApiKeySet(
-          process.env.CEREBRAS_API_KEY,
-          process.env.CEREBRAS_BACKUP_KEY_1,
-          process.env.CEREBRAS_BACKUP_KEY_2,
-          'CEREBRAS'
-        )
-      },
-      fireworks: {
-        enabled: process.env.ENABLE_FIREWORKS !== 'false',
-        apiKeys: validateApiKeySet(
-          process.env.FIREWORKS_API_KEY,
-          process.env.FIREWORKS_BACKUP_KEY_1,
-          process.env.FIREWORKS_BACKUP_KEY_2,
-          'FIREWORKS'
-        )
       },
       mistral: {
         enabled: process.env.ENABLE_MISTRAL !== 'false',
@@ -212,15 +135,6 @@ function validateEnvironment() {
           process.env.MISTRAL_BACKUP_KEY_1,
           process.env.MISTRAL_BACKUP_KEY_2,
           'MISTRAL'
-        )
-      },
-      deepinfra: {
-        enabled: process.env.ENABLE_DEEPINFRA !== 'false',
-        apiKeys: validateApiKeySet(
-          process.env.DEEPINFRA_API_KEY,
-          process.env.DEEPINFRA_BACKUP_KEY_1,
-          process.env.DEEPINFRA_BACKUP_KEY_2,
-          'DEEPINFRA'
         )
       }
     },
@@ -261,15 +175,6 @@ function validateEnvironment() {
     maxConcurrent: parseInt(process.env.MAX_CONCURRENT) || 100,
     cacheDuration: parseInt(process.env.CACHE_DURATION) || 300,
 
-    // Health Check Configuration
-    health: {
-      enabled: process.env.ENABLE_HEALTH_CHECKS !== 'false',
-      delay: parseInt(process.env.HEALTH_CHECK_DELAY) || 2600,
-      interval: parseInt(process.env.HEALTH_CHECK_INTERVAL) || 7200,
-      timeout: parseInt(process.env.HEALTH_CHECK_TIMEOUT) || 30000,
-      retries: parseInt(process.env.HEALTH_CHECK_RETRIES) || 2
-    },
-
     // Monitoring
     metrics: {
       enabled: process.env.ENABLE_METRICS === 'true',
@@ -300,14 +205,7 @@ function validateEnvironment() {
     }
 
     // Validate enabled providers
-    if (name === 'huggingchat') {
-      if (!provider.email || !provider.password) {
-        provider.enabled = false;
-        console.log(`❌ Provider ${name} missing credentials`);
-      } else {
-        console.log(`✅ Provider ${name} credentials found`);
-      }
-    } else if (!['hackclub', 'voids'].includes(name)) {
+    if (!['hackclub', 'voids'].includes(name)) {
       if (!provider.apiKeys?.length) {
         provider.enabled = false;
         console.log(`❌ Provider ${name} missing API key(s)`);
@@ -380,26 +278,6 @@ function validateEnvironment() {
     }
   }
 
-  // Validate Health Check Configuration
-  if (config.health.enabled) {
-    if (config.health.interval < 60) {
-      warnConfig('Health check interval too low, setting to 60s minimum');
-      config.health.interval = 60;
-    }
-    if (config.health.delay < 5000) {
-      warnConfig('Health check delay too low, setting to 5000ms minimum');
-      config.health.delay = 5000;
-    }
-    if (config.health.timeout < 5000) {
-      warnConfig('Health check timeout too low, setting to 5000ms minimum');
-      config.health.timeout = 5000;
-    }
-    if (config.health.retries < 1) {
-      warnConfig('Health check retries too low, setting to 1 minimum');
-      config.health.retries = 1;
-    }
-  }
-
   console.log('✨ Environment configuration validated');
   return config;
 }
@@ -415,7 +293,6 @@ function initialize() {
     process.env.DEBUG_MODE = config.debugMode.toString();
     process.env.ENABLE_LOGGING = config.logging.enabled.toString();
     process.env.ENABLE_STATS = config.stats.enabled.toString();
-    process.env.ENABLE_HEALTH_CHECKS = config.health.enabled.toString();
 
     return { warnings, warningMessages, config };
   } catch (error) {
