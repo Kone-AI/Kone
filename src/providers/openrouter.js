@@ -1,4 +1,5 @@
 // openrouter.js provider - implements OpenRouter's streaming API
+import Provider from './base.js';
 import logger from '../utils/logger.js';
 
 // permanent blacklist for invalid/broken models
@@ -10,12 +11,14 @@ const IGNORED_MODELS = new Set([
     'deepseek-ai/deepseek-coder-33b-instruct:free'  // unreliable responses
 ]);
 
-class OpenRouterProvider {
+class OpenRouterProvider extends Provider {
   constructor() {
+    // Initialize with empty config, will be populated in updateAvailableModels
+    super({ models: {} });
+    
     this.enabled = process.env.ENABLE_OPENROUTER !== 'false';
     this.baseUrl = 'https://openrouter.ai/api/v1';
     this.supportsStreaming = true;
-    this.models = new Map();
     this.lastUpdate = 0;
     this.updateInterval = 5 * 60 * 60 * 1000; // 5 hours in ms
     this.disabledModels = new Set();
@@ -150,7 +153,7 @@ class OpenRouterProvider {
       model: fullName,
       reason: 'Quota exceeded'
     });
-    this.models.delete(fullName);
+    delete this.config.models[this.getBaseModelName(model)];
   }
 
   getModelOwner(modelId) {  
@@ -161,8 +164,8 @@ class OpenRouterProvider {
     if (!this.enabled) return [];
 
     const now = Date.now();
-    if (now - this.lastUpdate < this.updateInterval && this.models.size > 0) {
-      return Array.from(this.models.keys());
+    if (now - this.lastUpdate < this.updateInterval && Object.keys(this.config.models).length > 0) {
+      return Object.keys(this.config.models).map(id => this.formatModelName(id));
     }
 
     try {
@@ -187,7 +190,7 @@ class OpenRouterProvider {
       }
 
       const data = await response.json();
-      this.models.clear();
+      const newConfig = { models: {} };
 
       data.data.forEach(model => {
         // Skip ignored models and paid models
@@ -199,34 +202,23 @@ class OpenRouterProvider {
           model.id.includes(':free')
         );
         
-        if (!isFreeModel) {
-          return;
-        }
+        if (!isFreeModel) return;
 
-        // Add openrouter/ prefix for storage/display
+        // Add model to config if not disabled
         const modelId = this.formatModelName(model.id);
-        
         if (!this.disabledModels.has(modelId)) {
-          this.models.set(modelId, {
-            id: modelId, // Store with prefix
-            object: 'model',
-            created: Date.now(),
-            owned_by: this.getModelOwner(model.id),
-            permission: [],
-            root: model.id, // Store original ID without prefix
-            parent: null,
+          newConfig.models[model.id] = {
+            display_name: model.name || model.id,
             context_length: model.context_length || 4096,
             pricing: model.pricing || { prompt: 0, completion: 0 },
-            capabilities: {
-              text: true,
-              images: model.id.includes('vision')
-            }
-          });
+            fallback: null // OpenRouter doesn't provide fallback info
+          };
         }
       });
 
+      this.config = newConfig;
       this.lastUpdate = now;
-      return Array.from(this.models.keys());
+      return Object.keys(this.config.models).map(id => this.formatModelName(id));
     } catch (error) {
       logger.error('Failed to fetch OpenRouter models:', {
         error: error.message,
@@ -236,67 +228,8 @@ class OpenRouterProvider {
       if (error.message.includes('Invalid API key')) {
         this.enabled = false;
       }
-      return Array.from(this.models.keys());
+      return Object.keys(this.config.models).map(id => this.formatModelName(id));
     }
-  }
-
-  async canHandle(model) {
-    if (!this.enabled) return false;
-
-    // dont even try handling ignored models lmao
-    const baseModel = this.getBaseModelName(model);
-    if (IGNORED_MODELS.has(baseModel)) return false;
-
-    try {
-      // Check if model exists in our list (with prefix)
-      const models = await this.updateAvailableModels();
-      return models.includes(this.formatModelName(baseModel));
-    } catch (error) {
-      logger.error('Failed to check model availability:', {
-        error: error.message,
-        model: baseModel,
-        status: error.status || null
-      });
-      return false;
-    }
-  }
-
-  transformResponse(response, model) {
-    // Ensure we have a valid response with content
-    if (!response?.choices?.[0]?.message?.content &&
-        !response?.choices?.[0]?.delta?.content) {
-      throw new Error('Empty or invalid response from model');
-    }
-
-    // Add openrouter/ prefix to model name in response
-    if (response.model) {
-      response.model = this.formatModelName(response.model);
-    }
-
-    // Extract content based on response format
-    const content = response.choices[0].message?.content ||
-                   response.choices[0].delta?.content;
-
-    // Log full response details in debug mode
-    if (process.env.DEBUG_MODE === 'true') {
-      logger.debug(`Response from ${model}:`, {
-        content: content?.slice(0, 100) + (content?.length > 100 ? '...' : ''),
-        finish_reason: response.choices?.[0]?.finish_reason || null,
-        tokens: response.usage || null,
-        latency: response.latency || null
-      });
-    }
-
-    return {
-      ...response,
-      choices: [{
-        ...response.choices[0],
-        message: {
-          role: 'assistant',
-          content: content || ''
-        }
-      }]
-    };
   }
 
   async *handleStream(reader, model) {
@@ -504,13 +437,6 @@ class OpenRouterProvider {
 
       throw error;
     }
-  }
-
-  async getModels() {
-    if (!this.enabled) return [];
-    
-    await this.updateAvailableModels();
-    return Array.from(this.models.values());
   }
 }
 

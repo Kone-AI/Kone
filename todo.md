@@ -9,3 +9,4 @@
 - [ ] make the chat api and api-api be seperate
 - [ ] update api docs
 - [ ] make shitty logo
+- [ ]

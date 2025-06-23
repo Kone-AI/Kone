@@ -157,7 +157,7 @@ class ProviderManager {
 
     for (const provider of this.providers) {
       try {
-        const providerModels = await provider.listModels();
+        const providerModels = await provider.getModels();
         
         for (const model of providerModels) {
           // Skip if we've already seen this model ID
@@ -179,12 +179,13 @@ class ProviderManager {
     const { stream = false, temperature = 0.7 } = options;
     let attempts = 0;
     let lastError = null;
+    let currentModel = model;
 
     while (attempts < this.retryAttempts) {
       for (const provider of this.providers) {
         try {
           // Check if provider supports this model
-          const supported = await provider.supportsModel(model);
+          const supported = await provider.canHandle(currentModel);
           if (!supported) continue;
 
           // Check if provider is rate limited
@@ -208,7 +209,7 @@ class ProviderManager {
           }
 
           // Make the request
-          const response = await provider.chat(model, messages, { stream, temperature });
+          const response = await provider.chat(messages, { ...options, model: currentModel });
           
           // Update rate limit tracking
           this.rateLimits.set(providerName, {
@@ -230,6 +231,15 @@ class ProviderManager {
             });
             logger.warn(`Rate limit hit for ${providerName}:`, error.message);
             continue;
+          }
+
+          // Try fallback model if available
+          const fallbackModel = provider.getFallbackModel(currentModel);
+          if (fallbackModel && fallbackModel !== currentModel) {
+            logger.info(`Attempting fallback from ${currentModel} to ${fallbackModel}`);
+            currentModel = fallbackModel;
+            attempts--; // Don't count this as a retry attempt
+            break; // Restart provider loop with fallback model
           }
           
           logger.error(`Provider ${provider.constructor.name} failed:`, error);
