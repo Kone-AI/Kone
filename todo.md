@@ -8,4 +8,3 @@
 - [ ] add subscription handling giving api access to people on the api plan and their being captchas on the normal chat
 - [ ] make the chat api and api-api be seperate
 - [ ] update api docs
-- [ ] make shitty logo
