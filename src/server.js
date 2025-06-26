@@ -162,7 +162,7 @@ const getRateLimiter = () => {
         // Skip rate limiting for specific cases
         skip: (req) => {
             // 1. System health checks
-            if (req.headers['user-agent']?.includes('KoneHealthCheck')) {
+            if (req.headers['user-agent']?.includes('SylphHealthCheck')) {
                 return true;
             }
             
@@ -1088,7 +1088,7 @@ app.get('/donated', async (req, res) => {
             <!DOCTYPE html>
             <html lang="en">
             <head>
-                <title>Thank You - Kone</title>
+                <title>Thank You - Sylph</title>
                 <link rel="stylesheet" href="/styles.css">
                 <meta name="viewport" content="width=device-width, initial-scale=1.0">
                 <script defer src="https://analytics.minoa.cat/script.js" data-website-id="dba618bd-576d-4166-a280-e38df64bf53f"></script>
@@ -1140,7 +1140,7 @@ app.get('/donated', async (req, res) => {
             <body>
                 <div class="thank-you-container">
                     <h1 class="site-header" onclick="location.href='/'">/thank-you</h1>
-                    <h2>Thank You for Supporting Kone!</h2>
+                    <h2>Thank You for Supporting Sylph!</h2>
                     <p>Your contribution helps keep this service running for everyone.</p>
                     
                     <div class="key-container">

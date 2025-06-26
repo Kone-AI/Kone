@@ -39,7 +39,7 @@ echo "Filesystem is now writable. Continuing..."
 echo "Pulling via GIT"
 git fetch
 git reset --hard origin/HEAD
-git pull https://github.com/Kone-AI/Kone
+git pull https://github.com/M1noa/Sylph
 npm install --no-audit --no-fund
 echo "Starting application..."
 npm start

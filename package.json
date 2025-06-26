@@ -1,5 +1,5 @@
 {
-  "name": "kone-api",
+  "name": "sylph-api",
   "version": "1.0.0",
   "description": "A compatibility layer for multiple AI providers",
   "main": "src/server.js",

@@ -1157,7 +1157,7 @@ function generateChatId() {
 
 function saveChatHistory() {
     try {
-        localStorage.setItem('koneChatHistory', JSON.stringify(chatHistory));
+        localStorage.setItem('sylphChatHistory', JSON.stringify(chatHistory));
     } catch (e) {
         console.error("Failed to save chat history:", e);
     }
@@ -1165,7 +1165,7 @@ function saveChatHistory() {
 
 function loadChatHistory() {
     try {
-        const storedHistory = localStorage.getItem('koneChatHistory');
+        const storedHistory = localStorage.getItem('sylphChatHistory');
         chatHistory = storedHistory ? JSON.parse(storedHistory) : {};
     } catch (e) {
         console.error("Failed to load chat history:", e);
@@ -1387,7 +1387,7 @@ function addSearchToggle() {
 function loadSettings() {
     try {
         // Load settings
-        const stored = localStorage.getItem('koneChatSettings');
+        const stored = localStorage.getItem('sylphChatSettings');
         if (stored) {
             const loadedSettings = JSON.parse(stored);
             settings = {
@@ -1435,7 +1435,7 @@ function saveSettings() {
         ...settings,
         apiKey: undefined
     };
-    localStorage.setItem('koneChatSettings', JSON.stringify(settingsToSave));
+    localStorage.setItem('sylphChatSettings', JSON.stringify(settingsToSave));
 }
 
 // API Key setting
@@ -1456,7 +1456,7 @@ apiKeyInput.addEventListener('change', () => {
 
 // Initialize chat interface and settings
 function initializeChat() {
-    console.log("Initializing Kone Chat...");
+    console.log("Initializing Sylph Chat...");
     
     // Load settings and history
     loadSettings();

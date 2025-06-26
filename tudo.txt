@@ -1,6 +1,0 @@
-add dreamygen (ZRki54SowvBOVGURRxe9BxKdfe5YEsim9XhlQDpYtk1S7BFl) https://dreamgen.com/docs https://dreamgen.com/docs/api#openai-chat
-get models via the openai models api
-{"object":"list","data":[{"id":"lucid-v1-medium/text","object":"model","created":1706745600,"owned_by":"dreamgen"},{"id":"lucid-v1-medium/assistant","object":"model","created":1706745600,"owned_by":"dreamgen"},{"id":"lucid-v1-extra-large/text","object":"model","created":1706745600,"owned_by":"dreamgen"},{"id":"lucid-v1-extra-large/assistant","object":"model","created":1706745600,"owned_by":"dreamgen"}]}
-
-
-update example env and env to have mention, llm-ui, and wtv else
