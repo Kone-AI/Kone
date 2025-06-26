@@ -3,43 +3,30 @@ import logger from '../utils/logger.js';
 
 class HackClubProvider extends BaseProvider {
   constructor() {
-    const defaultModel = {
-      id: 'hackclub/meta-llama/llama-4-maverick-17b-128e-instruct',
-      name: 'Llama 4 Maverick',
-      contextLength: 10000000,
-      pricing: { prompt: 0, completion: 0 },
-      owned_by: 'hackclub.com'
-    };
-
     super({
       name: 'HackClubProvider',
       baseURL: 'https://ai.hackclub.com',
       apiKeyRequired: false,
       supportsStreaming: true,
       enabled: true,
-      models: [defaultModel]
+      models: []
     });
-
-    this.defaultModel = defaultModel;
     this.enabled = true;
     this.lastModelCheck = 0;
     this.modelCheckInterval = 5 * 60 * 1000; // Check every 5 minutes
-    this.currentModel = defaultModel.id;
   }
 
   async getCurrentModel() {
     const now = Date.now();
-    if (now - this.lastModelCheck < this.modelCheckInterval && this.currentModel !== this.defaultModel.id) {
+    if (now - this.lastModelCheck < this.modelCheckInterval) {
       return this.currentModel;
     }
 
     try {
       logger.debug('[HackClub] Fetching current model');
       const response = await fetch(`${this.baseURL}/model`);
-      
       if (!response.ok) {
-        logger.warn(`[HackClub] Failed to fetch model (${response.status}), using default`);
-        return this.defaultModel.id;
+        throw new Error(`Failed to fetch model: ${response.status}`);
       }
 
       const modelId = await response.text();
@@ -47,22 +34,19 @@ class HackClubProvider extends BaseProvider {
       this.lastModelCheck = now;
 
       // Update models list with current model
-      const model = {
+      this.models = [{
         id: `hackclub/${this.currentModel}`,
         name: this.currentModel.split('/').pop(),
-        contextLength: 10000000,
+        contextLength: 10000000, // 10M context length
         pricing: { prompt: 0, completion: 0 },
         owned_by: 'hackclub.com'
-      };
+      }];
 
-      this.models = [model];
       logger.debug(`[HackClub] Current model: ${this.currentModel}`);
       return this.currentModel;
     } catch (error) {
-      logger.warn('[HackClub] Error fetching model, using default:', error);
-      this.currentModel = this.defaultModel.id;
-      this.models = [this.defaultModel];
-      return this.defaultModel.id;
+      logger.error('[HackClub] Failed to get current model:', error);
+      throw error;
     }
   }
   async getModels() {
